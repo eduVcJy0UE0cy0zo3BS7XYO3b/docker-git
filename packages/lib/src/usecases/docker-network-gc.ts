@@ -2,11 +2,7 @@ import type { CommandExecutor } from "@effect/platform/CommandExecutor"
 import type { PlatformError } from "@effect/platform/Error"
 import { Effect } from "effect"
 
-import {
-  defaultTemplateConfig,
-  resolveComposeNetworkName,
-  type TemplateConfig
-} from "../core/domain.js"
+import { defaultTemplateConfig, resolveComposeNetworkName, type TemplateConfig } from "../core/domain.js"
 import {
   runDockerNetworkContainerCount,
   runDockerNetworkCreateBridge,
@@ -21,18 +17,26 @@ const protectedNetworkNames = new Set(["bridge", "host", "none"])
 const isProtectedNetwork = (networkName: string, sharedNetworkName: string): boolean =>
   protectedNetworkNames.has(networkName) || networkName === sharedNetworkName
 
-const sharedNetworkFallbackSubnets: ReadonlyArray<string> = [
-  "10.250.0.0/24",
-  "10.251.0.0/24",
-  "10.252.0.0/24",
-  "10.253.0.0/24",
-  "172.31.250.0/24",
-  "172.31.251.0/24",
-  "172.31.252.0/24",
-  "172.31.253.0/24",
-  "192.168.250.0/24",
-  "192.168.251.0/24"
+type Subnet24Seed = readonly [number, number, number]
+
+const sharedNetworkFallbackSubnetSeeds: ReadonlyArray<Subnet24Seed> = [
+  [10, 250, 0],
+  [10, 251, 0],
+  [10, 252, 0],
+  [10, 253, 0],
+  [172, 31, 250],
+  [172, 31, 251],
+  [172, 31, 252],
+  [172, 31, 253],
+  [192, 168, 250],
+  [192, 168, 251]
 ]
+
+const formatSubnet24 = ([a, b, c]: Subnet24Seed): string => `${[a, b, c, 0].join(".")}/24`
+
+const sharedNetworkFallbackSubnets: ReadonlyArray<string> = sharedNetworkFallbackSubnetSeeds.map((seed) =>
+  formatSubnet24(seed)
+)
 
 const createSharedNetworkWithSubnetFallback = (
   cwd: string,
@@ -46,8 +50,7 @@ const createSharedNetworkWithSubnetFallback = (
           Effect.catchTag("DockerCommandError", (error) =>
             Effect.logWarning(
               `Shared network create fallback failed (${networkName}, subnet ${subnet}, exit ${error.exitCode}); trying next subnet.`
-            ).pipe(Effect.as(false))
-          )
+            ).pipe(Effect.as(false)))
         )
       )
       if (created) {
@@ -94,7 +97,8 @@ export const ensureComposeNetworkReady = (
         ? Effect.void
         : Effect.log(`Creating shared Docker network: ${networkName}`).pipe(
           Effect.zipRight(ensureSharedNetworkExists(cwd, networkName))
-        ))
+        )
+    )
   )
 }
 
@@ -169,5 +173,4 @@ export const gcProjectNetworkByServiceName = (
   cwd: string,
   serviceName: string,
   sharedNetworkName: string = defaultTemplateConfig.dockerSharedNetworkName
-): Effect.Effect<void, never, CommandExecutor> =>
-  gcNetworkByName(cwd, `${serviceName}-net`, sharedNetworkName)
+): Effect.Effect<void, never, CommandExecutor> => gcNetworkByName(cwd, `${serviceName}-net`, sharedNetworkName)

@@ -45,12 +45,12 @@ const disableTerminalInputModes = (): void => {
   // Disable mouse/input modes that can leak across TUI <-> SSH transitions.
   process.stdout.write(
     "\u001B[0m" +
-    "\u001B[?25h" +
-    "\u001B[?1l" +
-    "\u001B>" +
-    "\u001B[?1000l\u001B[?1002l\u001B[?1003l\u001B[?1005l\u001B[?1006l\u001B[?1015l\u001B[?1007l" +
-    "\u001B[?1004l\u001B[?2004l" +
-    "\u001B[>4;0m\u001B[>4m\u001B[<u"
+      "\u001B[?25h" +
+      "\u001B[?1l" +
+      "\u001B>" +
+      "\u001B[?1000l\u001B[?1002l\u001B[?1003l\u001B[?1005l\u001B[?1006l\u001B[?1015l\u001B[?1007l" +
+      "\u001B[?1004l\u001B[?2004l" +
+      "\u001B[>4;0m\u001B[>4m\u001B[<u"
   )
 }
 

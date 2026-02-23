@@ -1,7 +1,6 @@
 import { Effect } from "effect"
 
-const terminalSaneEscape =
-  "\u001B[0m" + // reset rendition
+const terminalSaneEscape = "\u001B[0m" + // reset rendition
   "\u001B[?25h" + // show cursor
   "\u001B[?1l" + // normal cursor keys mode
   "\u001B>" + // normal keypad mode
