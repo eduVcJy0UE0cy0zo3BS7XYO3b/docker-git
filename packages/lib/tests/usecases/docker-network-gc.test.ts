@@ -21,6 +21,10 @@ type FakeState = {
   readonly containerCountByNetwork: Map<string, number>
 }
 
+type FakeExecutorOptions = {
+  readonly failNetworkCreateWithoutSubnet: boolean
+}
+
 type SharedTemplate = {
   readonly serviceName: string
   readonly dockerNetworkMode: "shared"
@@ -38,7 +42,8 @@ const encode = (value: string): Uint8Array => new TextEncoder().encode(value)
 const makeFakeExecutor = (
   recorded: Array<RecordedCommand>,
   initialNetworks: ReadonlyArray<string>,
-  containerCounts: ReadonlyArray<readonly [string, number]>
+  containerCounts: ReadonlyArray<readonly [string, number]>,
+  options: FakeExecutorOptions = { failNetworkCreateWithoutSubnet: false }
 ): CommandExecutor.CommandExecutor => {
   const state: FakeState = {
     existingNetworks: new Set(initialNetworks),
@@ -78,8 +83,13 @@ const makeFakeExecutor = (
       }
 
       if (isDockerNetworkCreate) {
-        const networkName = args[4] ?? ""
-        if (networkName.length > 0) {
+        const subnetFlagIndex = args.indexOf("--subnet")
+        const hasSubnet = subnetFlagIndex >= 0
+        const networkName = hasSubnet ? (args[subnetFlagIndex + 2] ?? "") : (args[4] ?? "")
+
+        if (!hasSubnet && options.failNetworkCreateWithoutSubnet) {
+          exitCode = 1
+        } else if (networkName.length > 0) {
           state.existingNetworks.add(networkName)
           if (!state.containerCountByNetwork.has(networkName)) {
             state.containerCountByNetwork.set(networkName, 0)
@@ -172,6 +182,45 @@ describe("docker network shared mode", () => {
           entry.args[1] === "create"
       )
       expect(created).toBe(false)
+    }))
+
+  it.effect("falls back to explicit subnet when default network create fails", () =>
+    Effect.gen(function*(_) {
+      const recorded: Array<RecordedCommand> = []
+      const executor = makeFakeExecutor(
+        recorded,
+        [],
+        [],
+        { failNetworkCreateWithoutSubnet: true }
+      )
+      const template: SharedTemplate = {
+        serviceName: "dg-test",
+        dockerNetworkMode: "shared",
+        dockerSharedNetworkName: "docker-git-shared"
+      }
+
+      yield* _(
+        ensureComposeNetworkReady("/tmp", template).pipe(
+          Effect.provideService(CommandExecutor.CommandExecutor, executor)
+        )
+      )
+
+      const defaultCreateTried = recorded.some(
+        (entry) =>
+          entry.command === "docker" &&
+          entry.args[0] === "network" &&
+          entry.args[1] === "create" &&
+          !entry.args.includes("--subnet")
+      )
+      const subnetCreateTried = recorded.some(
+        (entry) =>
+          entry.command === "docker" &&
+          entry.args[0] === "network" &&
+          entry.args[1] === "create" &&
+          entry.args.includes("--subnet")
+      )
+      expect(defaultCreateTried).toBe(true)
+      expect(subnetCreateTried).toBe(true)
     }))
 })
 

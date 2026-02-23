@@ -143,7 +143,7 @@ const openSshBestEffort = (
         },
         [0, 130],
         (exitCode) => new CommandFailedError({ command: "ssh", exitCode })
-      )
+      ).pipe(Effect.ensuring(ensureTerminalCursorVisible()))
     )
   }).pipe(
     Effect.asVoid,

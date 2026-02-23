@@ -27,6 +27,16 @@ import { parseComposePsOutput } from "./projects-core.js"
 
 const maxPortAttempts = 25
 
+const syncManagedProjectFiles = (
+  projectDir: string,
+  template: TemplateConfig
+): Effect.Effect<void, FileExistsError | PlatformError, FileSystem | Path> =>
+  Effect.gen(function*(_) {
+    yield* _(Effect.log(`Applying docker-git templates in ${projectDir} before docker compose up...`))
+    yield* _(writeProjectFiles(projectDir, template, true))
+    yield* _(ensureCodexConfigFile(projectDir, template.codexAuthPath))
+  })
+
 // CHANGE: update template port when the preferred SSH port is reserved or busy
 // WHY: keep each project on a unique port even across restarts
 // QUOTE(ТЗ): "Почему контейнер пытается подниматься на существующий порт?"
@@ -95,8 +105,7 @@ export const runDockerComposeUpWithPortCheck = (
       ? config.template
       : yield* _(ensureAvailableSshPort(projectDir, config))
     // Keep generated templates in sync with the running CLI version.
-    yield* _(writeProjectFiles(projectDir, updated, true))
-    yield* _(ensureCodexConfigFile(projectDir, updated.codexAuthPath))
+    yield* _(syncManagedProjectFiles(projectDir, updated))
     yield* _(ensureComposeNetworkReady(projectDir, updated))
     yield* _(runDockerComposeUp(projectDir))
 

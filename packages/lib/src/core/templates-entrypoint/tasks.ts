@@ -139,22 +139,15 @@ const renderCloneBodyRef = (config: TemplateConfig): string =>
       fi
     else
       if ! su - ${config.sshUser} -c "GIT_TERMINAL_PROMPT=0 git clone --progress $CLONE_CACHE_ARGS --branch '$REPO_REF' '$AUTH_REPO_URL' '$TARGET_DIR'"; then
-        DEFAULT_REF="$(git ls-remote --symref "$AUTH_REPO_URL" HEAD 2>/dev/null | awk '/^ref:/ {print $2}' | head -n 1 || true)"
-        DEFAULT_BRANCH="$(printf "%s" "$DEFAULT_REF" | sed 's#^refs/heads/##')"
-        if [[ -n "$DEFAULT_BRANCH" ]]; then
-          echo "[clone] branch '$REPO_REF' missing; retrying with '$DEFAULT_BRANCH'"
-          if ! su - ${config.sshUser} -c "GIT_TERMINAL_PROMPT=0 git clone --progress $CLONE_CACHE_ARGS --branch '$DEFAULT_BRANCH' '$AUTH_REPO_URL' '$TARGET_DIR'"; then
-            echo "[clone] git clone failed for $REPO_URL"
-            CLONE_OK=0
-          elif [[ "$REPO_REF" == issue-* ]]; then
-            if ! su - ${config.sshUser} -c "cd '$TARGET_DIR' && git checkout -B '$REPO_REF'"; then
-              echo "[clone] failed to create local branch '$REPO_REF'"
-              CLONE_OK=0
-            fi
-          fi
-        else
+        echo "[clone] branch '$REPO_REF' missing; retrying without --branch"
+        if ! su - ${config.sshUser} -c "GIT_TERMINAL_PROMPT=0 git clone --progress $CLONE_CACHE_ARGS '$AUTH_REPO_URL' '$TARGET_DIR'"; then
           echo "[clone] git clone failed for $REPO_URL"
           CLONE_OK=0
+        elif [[ "$REPO_REF" == issue-* ]]; then
+          if ! su - ${config.sshUser} -c "cd '$TARGET_DIR' && git checkout -B '$REPO_REF'"; then
+            echo "[clone] failed to create local branch '$REPO_REF'"
+            CLONE_OK=0
+          fi
         fi
       fi
     fi

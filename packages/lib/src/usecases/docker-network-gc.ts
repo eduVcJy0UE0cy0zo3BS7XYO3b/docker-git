@@ -10,6 +10,7 @@ import {
 import {
   runDockerNetworkContainerCount,
   runDockerNetworkCreateBridge,
+  runDockerNetworkCreateBridgeWithSubnet,
   runDockerNetworkExists,
   runDockerNetworkRemove
 } from "../shell/docker.js"
@@ -19,6 +20,54 @@ const protectedNetworkNames = new Set(["bridge", "host", "none"])
 
 const isProtectedNetwork = (networkName: string, sharedNetworkName: string): boolean =>
   protectedNetworkNames.has(networkName) || networkName === sharedNetworkName
+
+const sharedNetworkFallbackSubnets: ReadonlyArray<string> = [
+  "10.250.0.0/24",
+  "10.251.0.0/24",
+  "10.252.0.0/24",
+  "10.253.0.0/24",
+  "172.31.250.0/24",
+  "172.31.251.0/24",
+  "172.31.252.0/24",
+  "172.31.253.0/24",
+  "192.168.250.0/24",
+  "192.168.251.0/24"
+]
+
+const createSharedNetworkWithSubnetFallback = (
+  cwd: string,
+  networkName: string
+): Effect.Effect<boolean, PlatformError, CommandExecutor> =>
+  Effect.gen(function*(_) {
+    for (const subnet of sharedNetworkFallbackSubnets) {
+      const created = yield* _(
+        runDockerNetworkCreateBridgeWithSubnet(cwd, networkName, subnet).pipe(
+          Effect.as(true),
+          Effect.catchTag("DockerCommandError", (error) =>
+            Effect.logWarning(
+              `Shared network create fallback failed (${networkName}, subnet ${subnet}, exit ${error.exitCode}); trying next subnet.`
+            ).pipe(Effect.as(false))
+          )
+        )
+      )
+      if (created) {
+        yield* _(Effect.log(`Created shared Docker network ${networkName} with subnet ${subnet}.`))
+        return true
+      }
+    }
+    return false
+  })
+
+const ensureSharedNetworkExists = (
+  cwd: string,
+  networkName: string
+): Effect.Effect<void, DockerCommandError | PlatformError, CommandExecutor> =>
+  runDockerNetworkCreateBridge(cwd, networkName).pipe(
+    Effect.catchTag("DockerCommandError", (error) =>
+      createSharedNetworkWithSubnetFallback(cwd, networkName).pipe(
+        Effect.flatMap((created) => (created ? Effect.void : Effect.fail(error)))
+      ))
+  )
 
 // CHANGE: ensure shared docker network exists before compose up
 // WHY: avoid compose failures when using `external: true` shared network mode
@@ -44,7 +93,7 @@ export const ensureComposeNetworkReady = (
       exists
         ? Effect.void
         : Effect.log(`Creating shared Docker network: ${networkName}`).pipe(
-          Effect.zipRight(runDockerNetworkCreateBridge(cwd, networkName))
+          Effect.zipRight(ensureSharedNetworkExists(cwd, networkName))
         ))
   )
 }

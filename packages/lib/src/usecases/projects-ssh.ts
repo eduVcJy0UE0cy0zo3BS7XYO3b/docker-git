@@ -131,7 +131,8 @@ export const connectProjectSsh = (
         [0, 130],
         (exitCode) => new CommandFailedError({ command: "ssh", exitCode })
       )
-    )
+    ),
+    Effect.ensuring(ensureTerminalCursorVisible())
   )
 
 // CHANGE: ensure docker compose is up before SSH connection

@@ -18,11 +18,33 @@ const isManifest = (fileName) => fileName.endsWith(MANIFEST_SUFFIX);
 const getPartRegex = (baseName) =>
   new RegExp(`^${escapeRegExp(baseName)}\\.part\\d+$`);
 
+const isSkippableReadError = (error) =>
+  error &&
+  typeof error === "object" &&
+  "code" in error &&
+  (error.code === "EACCES" ||
+    error.code === "EPERM" ||
+    error.code === "ENOENT");
+
+const readDirEntries = (dir, withFileTypes) => {
+  try {
+    return fs.readdirSync(
+      dir,
+      withFileTypes ? { withFileTypes: true } : undefined
+    );
+  } catch (error) {
+    if (isSkippableReadError(error)) {
+      return [];
+    }
+    throw error;
+  }
+};
+
 const findKnowledgeRoots = (startDir) => {
   const result = [];
 
   const visit = (dir) => {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const entries = readDirEntries(dir, true);
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       if (WALK_IGNORE_DIR_NAMES.has(entry.name)) continue;
@@ -44,7 +66,7 @@ const findKnowledgeRoots = (startDir) => {
 const removeSplitArtifacts = (filePath) => {
   const dir = path.dirname(filePath);
   const baseName = path.basename(filePath);
-  const entries = fs.readdirSync(dir);
+  const entries = readDirEntries(dir, false);
   const partRegex = getPartRegex(baseName);
 
   for (const entry of entries) {
@@ -59,7 +81,7 @@ const removeSplitArtifacts = (filePath) => {
 };
 
 const walk = (dir) => {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const entries = readDirEntries(dir, true);
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {

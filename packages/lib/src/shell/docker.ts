@@ -381,6 +381,31 @@ export const runDockerNetworkCreateBridge = (
     (exitCode) => new DockerCommandError({ exitCode })
   )
 
+// CHANGE: create a Docker bridge network with an explicit subnet
+// WHY: allow callers to bypass default address-pool allocation when it is exhausted
+// QUOTE(ТЗ): "научилось создавать сети правильно"
+// REF: user-request-2026-02-20-network-fallback
+// SOURCE: n/a
+// FORMAT THEOREM: ∀(n,s): create(n,s)=0 -> exists(n) ∧ subnet(n)=s
+// PURITY: SHELL
+// EFFECT: Effect<void, DockerCommandError | PlatformError, CommandExecutor>
+// INVARIANT: network driver is always `bridge`
+// COMPLEXITY: O(command)
+export const runDockerNetworkCreateBridgeWithSubnet = (
+  cwd: string,
+  networkName: string,
+  subnet: string
+): Effect.Effect<void, DockerCommandError | PlatformError, CommandExecutor.CommandExecutor> =>
+  runCommandWithExitCodes(
+    {
+      cwd,
+      command: "docker",
+      args: ["network", "create", "--driver", "bridge", "--subnet", subnet, networkName]
+    },
+    [Number(ExitCode(0))],
+    (exitCode) => new DockerCommandError({ exitCode })
+  )
+
 // CHANGE: inspect how many containers are attached to a network
 // WHY: network GC must remove only detached networks
 // QUOTE(ТЗ): "Только так что бы текущие проекты не ложились"
