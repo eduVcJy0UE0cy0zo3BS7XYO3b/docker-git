@@ -10,10 +10,16 @@ import * as ParseResult from "effect/ParseResult"
 import * as Schema from "effect/Schema"
 
 import { ApiBadRequestError, ApiConflictError, ApiInternalError, ApiNotFoundError, describeUnknown } from "./api/errors.js"
-import { CreateAgentRequestSchema, CreateProjectRequestSchema } from "./api/schema.js"
+import { CreateAgentRequestSchema, CreateFollowRequestSchema, CreateProjectRequestSchema } from "./api/schema.js"
 import { uiHtml, uiScript, uiStyles } from "./ui.js"
 import { getAgent, getAgentAttachInfo, listAgents, readAgentLogs, startAgent, stopAgent } from "./services/agents.js"
 import { latestProjectCursor, listProjectEventsSince } from "./services/events.js"
+import {
+  createFollowSubscription,
+  ingestFederationInbox,
+  listFederationIssues,
+  listFollowSubscriptions
+} from "./services/federation.js"
 import {
   createProjectFromRequest,
   deleteProjectById,
@@ -108,6 +114,8 @@ const projectParams = HttpRouter.schemaParams(ProjectParamsSchema)
 const agentParams = HttpRouter.schemaParams(AgentParamsSchema)
 
 const readCreateProjectRequest = () => HttpServerRequest.schemaBodyJson(CreateProjectRequestSchema)
+const readCreateFollowRequest = () => HttpServerRequest.schemaBodyJson(CreateFollowRequestSchema)
+const readInboxPayload = () => HttpServerRequest.schemaBodyJson(Schema.Unknown)
 
 export const makeRouter = () => {
   const base = HttpRouter.empty.pipe(
@@ -115,6 +123,36 @@ export const makeRouter = () => {
     HttpRouter.get("/ui/styles.css", textResponse(uiStyles, "text/css; charset=utf-8", 200)),
     HttpRouter.get("/ui/app.js", textResponse(uiScript, "application/javascript; charset=utf-8", 200)),
     HttpRouter.get("/v1/health", jsonResponse({ ok: true }, 200)),
+    HttpRouter.get(
+      "/v1/federation/issues",
+      Effect.sync(() => ({ issues: listFederationIssues() })).pipe(
+        Effect.flatMap((payload) => jsonResponse(payload, 200)),
+        Effect.catchAll(errorResponse)
+      )
+    ),
+    HttpRouter.post(
+      "/v1/federation/follows",
+      Effect.gen(function*(_) {
+        const request = yield* _(readCreateFollowRequest())
+        const created = yield* _(createFollowSubscription(request))
+        return yield* _(jsonResponse(created, 201))
+      }).pipe(Effect.catchAll(errorResponse))
+    ),
+    HttpRouter.get(
+      "/v1/federation/follows",
+      Effect.sync(() => ({ follows: listFollowSubscriptions() })).pipe(
+        Effect.flatMap((payload) => jsonResponse(payload, 200)),
+        Effect.catchAll(errorResponse)
+      )
+    ),
+    HttpRouter.post(
+      "/v1/federation/inbox",
+      Effect.gen(function*(_) {
+        const payload = yield* _(readInboxPayload())
+        const result = yield* _(ingestFederationInbox(payload))
+        return yield* _(jsonResponse({ result }, 202))
+      }).pipe(Effect.catchAll(errorResponse))
+    ),
     HttpRouter.get(
       "/v1/projects",
       listProjects().pipe(

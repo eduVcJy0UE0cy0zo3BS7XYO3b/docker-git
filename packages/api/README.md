@@ -26,6 +26,10 @@ Env:
 ## Endpoints (v1)
 
 - `GET /v1/health`
+- `POST /v1/federation/inbox` (ForgeFed `Ticket` / `Offer(Ticket)`, ActivityPub `Accept` / `Reject`)
+- `GET /v1/federation/issues`
+- `POST /v1/federation/follows` (create ActivityPub `Follow` activity for task-feed subscription)
+- `GET /v1/federation/follows`
 - `GET /v1/projects`
 - `GET /v1/projects/:projectId`
 - `POST /v1/projects`
@@ -49,4 +53,12 @@ Env:
 curl -s http://localhost:3334/v1/projects
 curl -s -X POST http://localhost:3334/v1/projects/<projectId>/up
 curl -s -N http://localhost:3334/v1/projects/<projectId>/events
+
+curl -s -X POST http://localhost:3334/v1/federation/follows \
+  -H 'content-type: application/json' \
+  -d '{"actor":"https://dev.example/users/bot","object":"https://tracker.example/issues/followers"}'
+
+curl -s -X POST http://localhost:3334/v1/federation/inbox \
+  -H 'content-type: application/json' \
+  -d '{"type":"Offer","target":"https://tracker.example/issues","object":{"type":"Ticket","id":"https://tracker.example/issues/42","attributedTo":"https://origin.example/users/alice","summary":"Title","content":"Body"}}'
 ```

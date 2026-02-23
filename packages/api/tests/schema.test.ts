@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Either, ParseResult, Schema } from "effect"
 
-import { CreateAgentRequestSchema, CreateProjectRequestSchema } from "../src/api/schema.js"
+import { CreateAgentRequestSchema, CreateFollowRequestSchema, CreateProjectRequestSchema } from "../src/api/schema.js"
 
 describe("api schemas", () => {
   it.effect("decodes create project payload", () =>
@@ -37,6 +37,26 @@ describe("api schemas", () => {
         },
         onRight: () => {
           throw new Error("Expected schema decode failure")
+        }
+      })
+    }))
+
+  it.effect("decodes follow payload", () =>
+    Effect.sync(() => {
+      const result = Schema.decodeUnknownEither(CreateFollowRequestSchema)({
+        actor: "https://example.com/users/alice",
+        object: "https://example.net/tracker/inbox",
+        to: ["https://www.w3.org/ns/activitystreams#Public"]
+      })
+
+      Either.match(result, {
+        onLeft: (error) => {
+          throw new Error(ParseResult.TreeFormatter.formatIssueSync(error.issue))
+        },
+        onRight: (value) => {
+          expect(value.actor).toBe("https://example.com/users/alice")
+          expect(value.object).toBe("https://example.net/tracker/inbox")
+          expect(value.to).toHaveLength(1)
         }
       })
     }))

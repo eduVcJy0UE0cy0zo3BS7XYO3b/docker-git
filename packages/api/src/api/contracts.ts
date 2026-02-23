@@ -102,6 +102,86 @@ export type AgentAttachInfo = {
   readonly shellCommand: string
 }
 
+export type ForgeFedTicket = {
+  readonly id: string
+  readonly attributedTo: string
+  readonly summary: string
+  readonly content: string
+  readonly mediaType?: string | undefined
+  readonly source?: string | undefined
+  readonly published?: string | undefined
+  readonly updated?: string | undefined
+  readonly url?: string | undefined
+}
+
+export type FederationIssueStatus = "offered" | "accepted" | "rejected"
+
+export type FederationIssueRecord = {
+  readonly issueId: string
+  readonly offerId?: string | undefined
+  readonly tracker?: string | undefined
+  readonly status: FederationIssueStatus
+  readonly receivedAt: string
+  readonly ticket: ForgeFedTicket
+}
+
+export type CreateFollowRequest = {
+  readonly actor: string
+  readonly object: string
+  readonly inbox?: string | undefined
+  readonly to?: ReadonlyArray<string> | undefined
+  readonly capability?: string | undefined
+}
+
+export type FollowStatus = "pending" | "accepted" | "rejected"
+
+export type ActivityPubFollowActivity = {
+  readonly "@context": "https://www.w3.org/ns/activitystreams"
+  readonly id: string
+  readonly type: "Follow"
+  readonly actor: string
+  readonly object: string
+  readonly to?: ReadonlyArray<string> | undefined
+  readonly capability?: string | undefined
+}
+
+export type FollowSubscription = {
+  readonly id: string
+  readonly activityId: string
+  readonly actor: string
+  readonly object: string
+  readonly inbox?: string | undefined
+  readonly to: ReadonlyArray<string>
+  readonly capability?: string | undefined
+  readonly status: FollowStatus
+  readonly createdAt: string
+  readonly updatedAt: string
+  readonly activity: ActivityPubFollowActivity
+}
+
+export type FollowSubscriptionCreated = {
+  readonly subscription: FollowSubscription
+  readonly activity: ActivityPubFollowActivity
+}
+
+export type FederationInboxResult =
+  | {
+    readonly kind: "issue.offer"
+    readonly issue: FederationIssueRecord
+  }
+  | {
+    readonly kind: "issue.ticket"
+    readonly issue: FederationIssueRecord
+  }
+  | {
+    readonly kind: "follow.accept"
+    readonly subscription: FollowSubscription
+  }
+  | {
+    readonly kind: "follow.reject"
+    readonly subscription: FollowSubscription
+  }
+
 export type ApiEventType =
   | "snapshot"
   | "project.created"

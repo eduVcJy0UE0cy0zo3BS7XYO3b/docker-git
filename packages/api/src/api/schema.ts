@@ -47,6 +47,14 @@ export const CreateAgentRequestSchema = Schema.Struct({
   label: OptionalString
 })
 
+export const CreateFollowRequestSchema = Schema.Struct({
+  actor: Schema.String,
+  object: Schema.String,
+  inbox: OptionalString,
+  to: Schema.optional(Schema.Array(Schema.String)),
+  capability: OptionalString
+})
+
 export const AgentSessionSchema = Schema.Struct({
   id: Schema.String,
   projectId: Schema.String,
@@ -73,3 +81,4 @@ export const AgentLogLineSchema = Schema.Struct({
 
 export type CreateProjectRequestInput = Schema.Schema.Type<typeof CreateProjectRequestSchema>
 export type CreateAgentRequestInput = Schema.Schema.Type<typeof CreateAgentRequestSchema>
+export type CreateFollowRequestInput = Schema.Schema.Type<typeof CreateFollowRequestSchema>
