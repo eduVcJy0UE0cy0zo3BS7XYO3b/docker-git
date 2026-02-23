@@ -9,6 +9,15 @@
 // INVARIANT: script is deterministic
 // COMPLEXITY: O(1)
 const dockerGitPromptScript = `docker_git_branch() { git rev-parse --abbrev-ref HEAD 2>/dev/null; }
+docker_git_terminal_sanitize() {
+  # Recover interactive TTY settings after abrupt exits from fullscreen/raw-mode tools.
+  if [ -t 0 ]; then
+    stty sane 2>/dev/null || true
+  fi
+  if [ -t 1 ]; then
+    printf "\\033[0m\\033[?25h\\033[?1l\\033>\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1005l\\033[?1006l\\033[?1015l\\033[?1007l\\033[?1004l\\033[?2004l\\033[>4;0m\\033[>4m\\033[<u"
+  fi
+}
 docker_git_short_pwd() {
   local full_path
   full_path="\${PWD:-}"
@@ -61,6 +70,7 @@ docker_git_short_pwd() {
   printf "%s" "$result"
 }
 docker_git_prompt_apply() {
+  docker_git_terminal_sanitize
   local b
   b="$(docker_git_branch)"
   local short_pwd
@@ -178,6 +188,15 @@ zstyle ':completion:*' tag-order builtins commands aliases reserved-words functi
 
 autoload -Uz add-zsh-hook
 docker_git_branch() { git rev-parse --abbrev-ref HEAD 2>/dev/null; }
+docker_git_terminal_sanitize() {
+  # Recover interactive TTY settings after abrupt exits from fullscreen/raw-mode tools.
+  if [[ -t 0 ]]; then
+    stty sane 2>/dev/null || true
+  fi
+  if [[ -t 1 ]]; then
+    printf "\\033[0m\\033[?25h\\033[?1l\\033>\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1005l\\033[?1006l\\033[?1015l\\033[?1007l\\033[?1004l\\033[?2004l\\033[>4;0m\\033[>4m\\033[<u"
+  fi
+}
 docker_git_short_pwd() {
   local full_path="\${PWD:-}"
   if [[ -z "$full_path" ]]; then
@@ -235,6 +254,7 @@ docker_git_short_pwd() {
   print -r -- "$result"
 }
 docker_git_prompt_apply() {
+  docker_git_terminal_sanitize
   local b
   b="$(docker_git_branch)"
   local short_pwd

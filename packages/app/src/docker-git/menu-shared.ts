@@ -41,10 +41,16 @@ const wrapWrite = (baseWrite: OutputWrite): OutputWrite =>
   return baseWrite(chunk, encoding, cb)
 }
 
-const disableMouseModes = (): void => {
-  // Disable xterm/urxvt mouse tracking and "alternate scroll" mode (wheel -> arrow keys).
+const disableTerminalInputModes = (): void => {
+  // Disable mouse/input modes that can leak across TUI <-> SSH transitions.
   process.stdout.write(
-    "\u001B[?1000l\u001B[?1002l\u001B[?1003l\u001B[?1005l\u001B[?1006l\u001B[?1015l\u001B[?1007l"
+    "\u001B[0m" +
+    "\u001B[?25h" +
+    "\u001B[?1l" +
+    "\u001B>" +
+    "\u001B[?1000l\u001B[?1002l\u001B[?1003l\u001B[?1005l\u001B[?1006l\u001B[?1015l\u001B[?1007l" +
+    "\u001B[?1004l\u001B[?2004l" +
+    "\u001B[>4;0m\u001B[>4m\u001B[<u"
   )
 }
 
@@ -201,7 +207,7 @@ export const suspendTui = (): void => {
   if (!process.stdout.isTTY) {
     return
   }
-  disableMouseModes()
+  disableTerminalInputModes()
   if (process.stdin.isTTY && typeof process.stdin.setRawMode === "function") {
     process.stdin.setRawMode(false)
   }
@@ -226,13 +232,13 @@ export const resumeTui = (): void => {
     return
   }
   setStdoutMuted(false)
-  disableMouseModes()
+  disableTerminalInputModes()
   // Return to the alternate screen for Ink rendering.
   process.stdout.write("\u001B[?1049h\u001B[2J\u001B[H")
   if (process.stdin.isTTY && typeof process.stdin.setRawMode === "function") {
     process.stdin.setRawMode(true)
   }
-  disableMouseModes()
+  disableTerminalInputModes()
 }
 
 export const leaveTui = (): void => {
@@ -241,7 +247,7 @@ export const leaveTui = (): void => {
   }
   // Ensure we don't leave the terminal in a broken "mouse reporting" mode.
   setStdoutMuted(false)
-  disableMouseModes()
+  disableTerminalInputModes()
   // Restore the primary screen on exit without clearing it (keeps useful scrollback).
   process.stdout.write("\u001B[?1049l")
   if (process.stdin.isTTY && typeof process.stdin.setRawMode === "function") {
