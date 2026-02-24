@@ -177,16 +177,16 @@ export const makeRouter = () => {
     HttpRouter.get("/", textResponse(uiHtml, "text/html; charset=utf-8", 200)),
     HttpRouter.get("/ui/styles.css", textResponse(uiStyles, "text/css; charset=utf-8", 200)),
     HttpRouter.get("/ui/app.js", textResponse(uiScript, "application/javascript; charset=utf-8", 200)),
-    HttpRouter.get("/v1/health", jsonResponse({ ok: true }, 200)),
+    HttpRouter.get("/health", jsonResponse({ ok: true }, 200)),
     HttpRouter.get(
-      "/v1/federation/issues",
+      "/federation/issues",
       Effect.sync(() => ({ issues: listFederationIssues() })).pipe(
         Effect.flatMap((payload) => jsonResponse(payload, 200)),
         Effect.catchAll(errorResponse)
       )
     ),
     HttpRouter.get(
-      "/v1/federation/actor",
+      "/federation/actor",
       Effect.gen(function*(_) {
         const request = yield* _(HttpServerRequest.HttpServerRequest)
         const context = yield* _(resolveFederationContext(request))
@@ -194,7 +194,7 @@ export const makeRouter = () => {
       }).pipe(Effect.catchAll(errorResponse))
     ),
     HttpRouter.get(
-      "/v1/federation/outbox",
+      "/federation/outbox",
       Effect.gen(function*(_) {
         const request = yield* _(HttpServerRequest.HttpServerRequest)
         const context = yield* _(resolveFederationContext(request))
@@ -202,7 +202,7 @@ export const makeRouter = () => {
       }).pipe(Effect.catchAll(errorResponse))
     ),
     HttpRouter.get(
-      "/v1/federation/followers",
+      "/federation/followers",
       Effect.gen(function*(_) {
         const request = yield* _(HttpServerRequest.HttpServerRequest)
         const context = yield* _(resolveFederationContext(request))
@@ -210,7 +210,7 @@ export const makeRouter = () => {
       }).pipe(Effect.catchAll(errorResponse))
     ),
     HttpRouter.get(
-      "/v1/federation/following",
+      "/federation/following",
       Effect.gen(function*(_) {
         const request = yield* _(HttpServerRequest.HttpServerRequest)
         const context = yield* _(resolveFederationContext(request))
@@ -218,7 +218,7 @@ export const makeRouter = () => {
       }).pipe(Effect.catchAll(errorResponse))
     ),
     HttpRouter.get(
-      "/v1/federation/liked",
+      "/federation/liked",
       Effect.gen(function*(_) {
         const request = yield* _(HttpServerRequest.HttpServerRequest)
         const context = yield* _(resolveFederationContext(request))
@@ -226,7 +226,7 @@ export const makeRouter = () => {
       }).pipe(Effect.catchAll(errorResponse))
     ),
     HttpRouter.post(
-      "/v1/federation/follows",
+      "/federation/follows",
       Effect.gen(function*(_) {
         const requestBody = yield* _(readCreateFollowRequest())
         const request = yield* _(HttpServerRequest.HttpServerRequest)
@@ -236,14 +236,14 @@ export const makeRouter = () => {
       }).pipe(Effect.catchAll(errorResponse))
     ),
     HttpRouter.get(
-      "/v1/federation/follows",
+      "/federation/follows",
       Effect.sync(() => ({ follows: listFollowSubscriptions() })).pipe(
         Effect.flatMap((payload) => jsonResponse(payload, 200)),
         Effect.catchAll(errorResponse)
       )
     ),
     HttpRouter.post(
-      "/v1/federation/inbox",
+      "/federation/inbox",
       Effect.gen(function*(_) {
         const payload = yield* _(readInboxPayload())
         const result = yield* _(ingestFederationInbox(payload))
@@ -254,14 +254,14 @@ export const makeRouter = () => {
 
   const withProjects = base.pipe(
     HttpRouter.get(
-      "/v1/projects",
+      "/projects",
       listProjects().pipe(
         Effect.flatMap((projects) => jsonResponse({ projects }, 200)),
         Effect.catchAll(errorResponse)
       )
     ),
     HttpRouter.post(
-      "/v1/projects",
+      "/projects",
       Effect.gen(function*(_) {
         const request = yield* _(readCreateProjectRequest())
         const project = yield* _(createProjectFromRequest(request))
@@ -269,7 +269,7 @@ export const makeRouter = () => {
       }).pipe(Effect.catchAll(errorResponse))
     ),
     HttpRouter.get(
-      "/v1/projects/:projectId",
+      "/projects/:projectId",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) => getProject(projectId)),
         Effect.flatMap((project) => jsonResponse({ project }, 200)),
@@ -277,7 +277,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.del(
-      "/v1/projects/:projectId",
+      "/projects/:projectId",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) => deleteProjectById(projectId)),
         Effect.flatMap(() => jsonResponse({ ok: true }, 200)),
@@ -285,7 +285,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.post(
-      "/v1/projects/:projectId/up",
+      "/projects/:projectId/up",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) => upProject(projectId)),
         Effect.flatMap(() => jsonResponse({ ok: true }, 200)),
@@ -293,7 +293,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.post(
-      "/v1/projects/:projectId/down",
+      "/projects/:projectId/down",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) => downProject(projectId)),
         Effect.flatMap(() => jsonResponse({ ok: true }, 200)),
@@ -301,7 +301,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.post(
-      "/v1/projects/:projectId/recreate",
+      "/projects/:projectId/recreate",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) => recreateProject(projectId)),
         Effect.flatMap(() => jsonResponse({ ok: true }, 200)),
@@ -309,7 +309,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.get(
-      "/v1/projects/:projectId/ps",
+      "/projects/:projectId/ps",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) => readProjectPs(projectId)),
         Effect.flatMap((output) => jsonResponse({ output }, 200)),
@@ -317,7 +317,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.get(
-      "/v1/projects/:projectId/logs",
+      "/projects/:projectId/logs",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) => readProjectLogs(projectId)),
         Effect.flatMap((output) => jsonResponse({ output }, 200)),
@@ -328,7 +328,7 @@ export const makeRouter = () => {
 
   const withAgents = withProjects.pipe(
     HttpRouter.post(
-      "/v1/projects/:projectId/agents",
+      "/projects/:projectId/agents",
       Effect.gen(function*(_) {
         const { projectId } = yield* _(projectParams)
         const project = yield* _(getProject(projectId))
@@ -338,14 +338,14 @@ export const makeRouter = () => {
       }).pipe(Effect.catchAll(errorResponse))
     ),
     HttpRouter.get(
-      "/v1/projects/:projectId/agents",
+      "/projects/:projectId/agents",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) => jsonResponse({ sessions: listAgents(projectId) }, 200)),
         Effect.catchAll(errorResponse)
       )
     ),
     HttpRouter.get(
-      "/v1/projects/:projectId/agents/:agentId",
+      "/projects/:projectId/agents/:agentId",
       agentParams.pipe(
         Effect.flatMap(({ projectId, agentId }) => getAgent(projectId, agentId)),
         Effect.flatMap((session) => jsonResponse({ session }, 200)),
@@ -353,7 +353,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.get(
-      "/v1/projects/:projectId/agents/:agentId/attach",
+      "/projects/:projectId/agents/:agentId/attach",
       agentParams.pipe(
         Effect.flatMap(({ projectId, agentId }) => getAgentAttachInfo(projectId, agentId)),
         Effect.flatMap((attach) => jsonResponse({ attach }, 200)),
@@ -361,7 +361,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.post(
-      "/v1/projects/:projectId/agents/:agentId/stop",
+      "/projects/:projectId/agents/:agentId/stop",
       agentParams.pipe(
         Effect.flatMap(({ projectId, agentId }) =>
           Effect.gen(function*(_) {
@@ -374,7 +374,7 @@ export const makeRouter = () => {
       )
     ),
     HttpRouter.get(
-      "/v1/projects/:projectId/agents/:agentId/logs",
+      "/projects/:projectId/agents/:agentId/logs",
       agentParams.pipe(
         Effect.flatMap(({ projectId, agentId }) =>
           Effect.gen(function*(_) {
@@ -392,7 +392,7 @@ export const makeRouter = () => {
 
   return withAgents.pipe(
     HttpRouter.get(
-      "/v1/projects/:projectId/events",
+      "/projects/:projectId/events",
       projectParams.pipe(
         Effect.flatMap(({ projectId }) =>
           Effect.gen(function*(_) {

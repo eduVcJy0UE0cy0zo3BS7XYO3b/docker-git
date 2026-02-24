@@ -549,7 +549,7 @@ export const uiScript = `
     return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
   };
 
-  const projectPath = (projectId, suffix) => '/v1/projects/' + encodeURIComponent(projectId) + suffix;
+  const projectPath = (projectId, suffix) => '/projects/' + encodeURIComponent(projectId) + suffix;
 
   const request = async (path, init) => {
     const base = normalizeBase(views.baseUrl.value);
@@ -627,7 +627,7 @@ export const uiScript = `
   };
 
   const loadProjects = async () => {
-    const payload = await request('/v1/projects');
+    const payload = await request('/projects');
     state.projects = (payload && payload.projects) || [];
     renderProjects();
 
@@ -825,7 +825,7 @@ export const uiScript = `
       openSsh: false
     };
 
-    await request('/v1/projects', {
+    await request('/projects', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body)
@@ -873,7 +873,7 @@ export const uiScript = `
     });
 
     byId('btn-health').addEventListener('click', withUiError(async () => {
-      const payload = await request('/v1/health');
+      const payload = await request('/health');
       window.alert('Health: ' + JSON.stringify(payload));
     }));
 

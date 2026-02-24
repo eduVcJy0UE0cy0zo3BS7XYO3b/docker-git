@@ -71,8 +71,8 @@ describe("federation service", () => {
 
       expect(created.subscription.status).toBe("pending")
       expect(created.activity.type).toBe("Follow")
-      expect(created.activity.id).toContain("https://social.provercoder.ai/v1/federation/activities/follows/")
-      expect(created.activity.actor).toBe("https://social.provercoder.ai/v1/federation/actor")
+      expect(created.activity.id).toContain("https://social.provercoder.ai/federation/activities/follows/")
+      expect(created.activity.actor).toBe("https://social.provercoder.ai/federation/actor")
 
       const accepted = yield* _(
         ingestFederationInbox({
@@ -107,7 +107,7 @@ describe("federation service", () => {
           {
             actor: "https://dev.example/users/bot",
             object: "https://tracker.example/issues/followers",
-            inbox: "/v1/federation/inbox"
+            inbox: "/federation/inbox"
           },
           context
         )
@@ -115,7 +115,7 @@ describe("federation service", () => {
 
       expect(created.activity.actor).toBe("https://social.provercoder.ai/users/bot")
       expect(created.activity.object).toBe("https://social.provercoder.ai/issues/followers")
-      expect(created.subscription.inbox).toBe("https://social.provercoder.ai/v1/federation/inbox")
+      expect(created.subscription.inbox).toBe("https://social.provercoder.ai/federation/inbox")
     }))
 
   it.effect("builds person and following collections in activitypub shape", () =>
@@ -131,9 +131,9 @@ describe("federation service", () => {
 
       const person = makeFederationActorDocument(context)
       expect(person.type).toBe("Person")
-      expect(person.id).toBe("https://social.provercoder.ai/v1/federation/actor")
+      expect(person.id).toBe("https://social.provercoder.ai/federation/actor")
       expect(person.preferredUsername).toBe("tasks")
-      expect(person.followers).toBe("https://social.provercoder.ai/v1/federation/followers")
+      expect(person.followers).toBe("https://social.provercoder.ai/federation/followers")
 
       const created = yield* _(
         createFollowSubscription(

@@ -263,13 +263,13 @@ export const makeFederationContext = (
     return {
       publicOrigin,
       actorUsername,
-      actorId: `${publicOrigin}/v1/federation/actor`,
-      inbox: `${publicOrigin}/v1/federation/inbox`,
-      outbox: `${publicOrigin}/v1/federation/outbox`,
-      followers: `${publicOrigin}/v1/federation/followers`,
-      following: `${publicOrigin}/v1/federation/following`,
-      liked: `${publicOrigin}/v1/federation/liked`,
-      followsActivityPrefix: `${publicOrigin}/v1/federation/activities/follows`
+      actorId: `${publicOrigin}/federation/actor`,
+      inbox: `${publicOrigin}/federation/inbox`,
+      outbox: `${publicOrigin}/federation/outbox`,
+      followers: `${publicOrigin}/federation/followers`,
+      following: `${publicOrigin}/federation/following`,
+      liked: `${publicOrigin}/federation/liked`,
+      followsActivityPrefix: `${publicOrigin}/federation/activities/follows`
     }
   })
 

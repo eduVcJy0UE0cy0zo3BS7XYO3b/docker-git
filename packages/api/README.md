@@ -25,49 +25,49 @@ Env:
 - `DOCKER_GIT_FEDERATION_PUBLIC_ORIGIN` (optional public ActivityPub domain, e.g. `https://social.my-domain.tld`)
 - `DOCKER_GIT_FEDERATION_ACTOR` (default: `docker-git`)
 
-## Endpoints (v1)
+## Endpoints
 
-- `GET /v1/health`
-- `POST /v1/federation/inbox` (ForgeFed `Ticket` / `Offer(Ticket)`, ActivityPub `Accept` / `Reject`)
-- `GET /v1/federation/issues`
-- `GET /v1/federation/actor` (ActivityPub `Person`)
-- `GET /v1/federation/outbox`
-- `GET /v1/federation/followers`
-- `GET /v1/federation/following`
-- `GET /v1/federation/liked`
-- `POST /v1/federation/follows` (create ActivityPub `Follow` activity for task-feed subscription)
-- `GET /v1/federation/follows`
-- `GET /v1/projects`
-- `GET /v1/projects/:projectId`
-- `POST /v1/projects`
-- `DELETE /v1/projects/:projectId`
-- `POST /v1/projects/:projectId/up`
-- `POST /v1/projects/:projectId/down`
-- `POST /v1/projects/:projectId/recreate`
-- `GET /v1/projects/:projectId/ps`
-- `GET /v1/projects/:projectId/logs`
-- `GET /v1/projects/:projectId/events` (SSE)
-- `POST /v1/projects/:projectId/agents`
-- `GET /v1/projects/:projectId/agents`
-- `GET /v1/projects/:projectId/agents/:agentId`
-- `GET /v1/projects/:projectId/agents/:agentId/attach`
-- `POST /v1/projects/:projectId/agents/:agentId/stop`
-- `GET /v1/projects/:projectId/agents/:agentId/logs`
+- `GET /health`
+- `POST /federation/inbox` (ForgeFed `Ticket` / `Offer(Ticket)`, ActivityPub `Accept` / `Reject`)
+- `GET /federation/issues`
+- `GET /federation/actor` (ActivityPub `Person`)
+- `GET /federation/outbox`
+- `GET /federation/followers`
+- `GET /federation/following`
+- `GET /federation/liked`
+- `POST /federation/follows` (create ActivityPub `Follow` activity for task-feed subscription)
+- `GET /federation/follows`
+- `GET /projects`
+- `GET /projects/:projectId`
+- `POST /projects`
+- `DELETE /projects/:projectId`
+- `POST /projects/:projectId/up`
+- `POST /projects/:projectId/down`
+- `POST /projects/:projectId/recreate`
+- `GET /projects/:projectId/ps`
+- `GET /projects/:projectId/logs`
+- `GET /projects/:projectId/events` (SSE)
+- `POST /projects/:projectId/agents`
+- `GET /projects/:projectId/agents`
+- `GET /projects/:projectId/agents/:agentId`
+- `GET /projects/:projectId/agents/:agentId/attach`
+- `POST /projects/:projectId/agents/:agentId/stop`
+- `GET /projects/:projectId/agents/:agentId/logs`
 
 ## Example
 
 ```bash
-curl -s http://localhost:3334/v1/projects
-curl -s -X POST http://localhost:3334/v1/projects/<projectId>/up
-curl -s -N http://localhost:3334/v1/projects/<projectId>/events
+curl -s http://localhost:3334/projects
+curl -s -X POST http://localhost:3334/projects/<projectId>/up
+curl -s -N http://localhost:3334/projects/<projectId>/events
 
-curl -s http://localhost:3334/v1/federation/actor
+curl -s http://localhost:3334/federation/actor
 
-curl -s -X POST http://localhost:3334/v1/federation/follows \
+curl -s -X POST http://localhost:3334/federation/follows \
   -H 'content-type: application/json' \
   -d '{"domain":"social.my-domain.tld","object":"https://social.my-domain.tld/issues/followers"}'
 
-curl -s -X POST http://localhost:3334/v1/federation/inbox \
+curl -s -X POST http://localhost:3334/federation/inbox \
   -H 'content-type: application/json' \
   -d '{"@context":["https://www.w3.org/ns/activitystreams","https://forgefed.org/ns"],"id":"https://social.my-domain.tld/offers/42","type":"Offer","target":"https://social.my-domain.tld/issues","object":{"type":"Ticket","id":"https://social.my-domain.tld/issues/42","attributedTo":"https://origin.my-domain.tld/users/alice","summary":"Title","content":"Body"}}'
 ```

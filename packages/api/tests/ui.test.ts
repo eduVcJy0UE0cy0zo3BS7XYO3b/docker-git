@@ -8,7 +8,7 @@ describe("api ui wrapper", () => {
     Effect.sync(() => {
       expect(uiHtml).toContain("docker-git API Console")
       expect(uiHtml).toContain("/ui/app.js")
-      expect(uiScript).toContain("/v1/projects")
+      expect(uiScript).toContain("/projects")
       expect(uiStyles).toContain(".panel")
     }))
 })
