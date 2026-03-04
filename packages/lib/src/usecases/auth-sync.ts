@@ -40,6 +40,19 @@ const defaultCodexConfig = [
 const resolvePathFromBase = (path: Path.Path, baseDir: string, targetPath: string): string =>
   path.isAbsolute(targetPath) ? targetPath : path.resolve(baseDir, targetPath)
 
+const isPermissionDeniedSystemError = (error: PlatformError): boolean =>
+  error._tag === "SystemError" && error.reason === "PermissionDenied"
+
+const skipCodexConfigPermissionDenied = (
+  configPath: string,
+  error: PlatformError
+): Effect.Effect<void, PlatformError> =>
+  isPermissionDeniedSystemError(error)
+    ? Effect.logWarning(
+      `Skipped Codex config sync at ${configPath}: permission denied (${error.description ?? "no details"}).`
+    )
+    : Effect.fail(error)
+
 const codexConfigMarker = "# docker-git codex config"
 
 const normalizeConfigText = (text: string): string =>
@@ -169,10 +182,10 @@ const copyFileIfNeeded = (
 // QUOTE(ТЗ): "сразу настраивал полностью весь доступ ко всем командам"
 // REF: user-request-2026-01-30-codex-config
 // SOURCE: n/a
-// FORMAT THEOREM: forall p: missing(config(p)) -> config(p)=defaults
+// FORMAT THEOREM: forall p: writable(config(p)) -> config(p)=defaults; permission_denied(config(p)) -> warning_logged
 // PURITY: SHELL
 // EFFECT: Effect<void, PlatformError, FileSystem | Path>
-// INVARIANT: rewrites only docker-git-managed configs to keep defaults in sync
+// INVARIANT: rewrites only docker-git-managed configs to keep defaults in sync, permission-denied writes are skipped
 // COMPLEXITY: O(n) where n = |config|
 export const ensureCodexConfigFile = (
   baseDir: string,
@@ -182,19 +195,26 @@ export const ensureCodexConfigFile = (
     Effect.gen(function*(_) {
       const resolved = resolvePathFromBase(path, baseDir, codexAuthPath)
       const configPath = path.join(resolved, "config.toml")
-      const exists = yield* _(fs.exists(configPath))
-      if (exists) {
-        const current = yield* _(fs.readFileString(configPath))
-        if (!shouldRewriteDockerGitCodexConfig(current)) {
+      const writeConfig = Effect.gen(function*(__) {
+        const exists = yield* __(fs.exists(configPath))
+        if (exists) {
+          const current = yield* __(fs.readFileString(configPath))
+          if (!shouldRewriteDockerGitCodexConfig(current)) {
+            return
+          }
+          yield* __(fs.writeFileString(configPath, defaultCodexConfig))
+          yield* __(Effect.log(`Updated Codex config at ${configPath}`))
           return
         }
-        yield* _(fs.writeFileString(configPath, defaultCodexConfig))
-        yield* _(Effect.log(`Updated Codex config at ${configPath}`))
-        return
-      }
-      yield* _(fs.makeDirectory(resolved, { recursive: true }))
-      yield* _(fs.writeFileString(configPath, defaultCodexConfig))
-      yield* _(Effect.log(`Created Codex config at ${configPath}`))
+        yield* __(fs.makeDirectory(resolved, { recursive: true }))
+        yield* __(fs.writeFileString(configPath, defaultCodexConfig))
+        yield* __(Effect.log(`Created Codex config at ${configPath}`))
+      })
+      yield* _(
+        writeConfig.pipe(
+          Effect.catchAll((error) => skipCodexConfigPermissionDenied(configPath, error))
+        )
+      )
     })
   )
 

@@ -1,6 +1,7 @@
 import { type MenuAction, type ProjectConfig } from "@effect-template/lib/core/domain"
 import { readProjectConfig } from "@effect-template/lib/shell/config"
 import { runDockerComposeDown, runDockerComposeLogs, runDockerComposePs } from "@effect-template/lib/shell/docker"
+import { gcProjectNetworkByTemplate } from "@effect-template/lib/usecases/docker-network-gc"
 import type { AppError } from "@effect-template/lib/usecases/errors"
 import { renderError } from "@effect-template/lib/usecases/errors"
 import {
@@ -9,7 +10,6 @@ import {
   listProjectStatus,
   listRunningProjectItems
 } from "@effect-template/lib/usecases/projects"
-import { gcProjectNetworkByTemplate } from "@effect-template/lib/usecases/docker-network-gc"
 import { runDockerComposeUpWithPortCheck } from "@effect-template/lib/usecases/projects-up"
 import { Effect, Match, pipe } from "effect"
 

@@ -2,13 +2,14 @@ import type { CommandExecutor } from "@effect/platform/CommandExecutor"
 import type { PlatformError } from "@effect/platform/Error"
 import type { FileSystem } from "@effect/platform/FileSystem"
 import type { Path } from "@effect/platform/Path"
-import { Effect } from "effect"
+import { Effect, pipe } from "effect"
 
 import type { ProjectConfig, TemplateConfig } from "../core/domain.js"
 import { readProjectConfig } from "../shell/config.js"
 import {
   runDockerComposePsFormatted,
   runDockerComposeUp,
+  runDockerExecExitCode,
   runDockerInspectContainerBridgeIp,
   runDockerNetworkConnectBridge
 } from "../shell/docker.js"
@@ -36,6 +37,86 @@ const syncManagedProjectFiles = (
     yield* _(writeProjectFiles(projectDir, template, true))
     yield* _(ensureCodexConfigFile(projectDir, template.codexAuthPath))
   })
+
+const claudeCliSelfHealScript = String.raw`set -eu
+if command -v claude >/dev/null 2>&1; then
+  exit 0
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  exit 1
+fi
+
+NPM_ROOT="$(npm root -g 2>/dev/null || true)"
+CLAUDE_JS="$NPM_ROOT/@anthropic-ai/claude-code/cli.js"
+if [ -z "$NPM_ROOT" ] || [ ! -f "$CLAUDE_JS" ]; then
+  echo "claude cli.js not found under npm global root" >&2
+  exit 1
+fi
+
+cat <<'EOF' > /usr/local/bin/claude
+#!/usr/bin/env bash
+set -euo pipefail
+
+NPM_ROOT="$(npm root -g 2>/dev/null || true)"
+CLAUDE_JS="$NPM_ROOT/@anthropic-ai/claude-code/cli.js"
+if [[ -z "$NPM_ROOT" || ! -f "$CLAUDE_JS" ]]; then
+  echo "claude: cli.js not found under npm global root" >&2
+  exit 127
+fi
+
+exec node "$CLAUDE_JS" "$@"
+EOF
+chmod 0755 /usr/local/bin/claude || true
+ln -sf /usr/local/bin/claude /usr/bin/claude || true
+
+command -v claude >/dev/null 2>&1`
+
+const ensureClaudeCliReady = (
+  projectDir: string,
+  containerName: string
+): Effect.Effect<void, never, CommandExecutor> =>
+  pipe(
+    runDockerExecExitCode(projectDir, containerName, [
+      "bash",
+      "-lc",
+      "command -v claude >/dev/null 2>&1"
+    ]),
+    Effect.flatMap((probeExitCode) => {
+      if (probeExitCode === 0) {
+        return Effect.void
+      }
+
+      return pipe(
+        Effect.logWarning(
+          `Claude CLI is missing in ${containerName}; running docker-git self-heal.`
+        ),
+        Effect.zipRight(
+          runDockerExecExitCode(projectDir, containerName, [
+            "bash",
+            "-lc",
+            claudeCliSelfHealScript
+          ])
+        ),
+        Effect.flatMap((healExitCode) =>
+          healExitCode === 0
+            ? Effect.log(`Claude CLI self-heal completed in ${containerName}.`)
+            : Effect.logWarning(
+              `Claude CLI self-heal failed in ${containerName} (exit ${healExitCode}).`
+            )),
+        Effect.asVoid
+      )
+    }),
+    Effect.matchEffect({
+      onFailure: (error) =>
+        Effect.logWarning(
+          `Skipping Claude CLI self-heal check for ${containerName}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        ),
+      onSuccess: () => Effect.void
+    })
+  )
 
 // CHANGE: update template port when the preferred SSH port is reserved or busy
 // WHY: keep each project on a unique port even across restarts
@@ -108,6 +189,7 @@ export const runDockerComposeUpWithPortCheck = (
     yield* _(syncManagedProjectFiles(projectDir, updated))
     yield* _(ensureComposeNetworkReady(projectDir, updated))
     yield* _(runDockerComposeUp(projectDir))
+    yield* _(ensureClaudeCliReady(projectDir, updated.containerName))
 
     const ensureBridgeAccess = (containerName: string) =>
       runDockerInspectContainerBridgeIp(projectDir, containerName).pipe(

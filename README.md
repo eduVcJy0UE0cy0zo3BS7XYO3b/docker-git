@@ -6,7 +6,7 @@ Key goals:
 - Functional Core, Imperative Shell implementation (pure templates + typed orchestration).
 - Per-project `.orch/` directory (env + local state), while still allowing shared credentials across containers.
 - Shared package caches (`pnpm`/`npm`/`yarn`) across all project containers.
-- Optional Playwright MCP + Chromium sidecar so Codex can do browser automation.
+- Optional Playwright MCP + Chromium sidecar so Codex and Claude Code can do browser automation.
 
 ## Quickstart
 
@@ -33,7 +33,7 @@ pnpm run docker-git open https://github.com/agiens/crm/issues/123
 # Reset only project env defaults (keep workspace volume/data)
 pnpm run docker-git clone https://github.com/agiens/crm/issues/123 --force-env
 
-# Same, but also enable Playwright MCP + Chromium sidecar for Codex
+# Same, but also enable Playwright MCP + Chromium sidecar for Codex/Claude
 pnpm run docker-git clone https://github.com/agiens/crm/tree/vova-fork --force --mcp-playwright
 ```
 
@@ -107,7 +107,12 @@ Enable for an existing project directory (preserves `.orch/env/project.env` and 
 This will:
 - Create a Chromium sidecar container: `dg-<repo>-browser`
 - Configure Codex MCP server `playwright` inside the dev container
+- Configure Claude Code MCP server `playwright` inside `$CLAUDE_CONFIG_DIR/.claude.json`
 - Provide a wrapper `docker-git-playwright-mcp` inside the dev container
+
+Template attribute behavior:
+- `--mcp-playwright` sets `enableMcpPlaywright=true` in `docker-git.json`.
+- On container start, docker-git syncs Playwright MCP config for both Codex and Claude based on this attribute/env.
 
 Concurrency (many Codex sessions):
 - Default is safe for many sessions: `MCP_PLAYWRIGHT_ISOLATED=1`
@@ -121,6 +126,7 @@ Edit: `<projectDir>/.orch/env/project.env`
 Common toggles:
 - `CODEX_SHARE_AUTH=1|0` (default: `1`)
 - `CODEX_AUTO_UPDATE=1|0` (default: `1`)
+- `CLAUDE_AUTO_SYSTEM_PROMPT=1|0` (default: `1`, auto-attach managed system prompt to `claude`)
 - `DOCKER_GIT_ZSH_AUTOSUGGEST=1|0` (default: `1`)
 - `MCP_PLAYWRIGHT_ISOLATED=1|0` (default: `1`)
 - `MCP_PLAYWRIGHT_CDP_ENDPOINT=http://...` (override CDP endpoint if needed)
@@ -150,6 +156,11 @@ MCP errors in `codex` UI:
   - Fix (recreate): recreate with `--force-env --mcp-playwright` (keeps volumes) or `--force --mcp-playwright` (wipes volumes).
 - `handshaking ... initialize response`:
   - The configured MCP command is not a real MCP server (example: `command="echo"`).
+
+MCP errors in `claude` UI:
+- `MCP server "playwright" not found`:
+  - The container/project was created without `--mcp-playwright` (or `enableMcpPlaywright=false` in `docker-git.json`).
+  - Fix: run `docker-git mcp-playwright [<url>]` or recreate/apply with `--mcp-playwright`.
 
 Docker permission error (`/var/run/docker.sock`):
 - Symptom:

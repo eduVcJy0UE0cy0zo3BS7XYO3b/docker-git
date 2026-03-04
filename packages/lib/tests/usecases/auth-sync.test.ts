@@ -1,6 +1,25 @@
+import * as FileSystem from "@effect/platform/FileSystem"
+import * as Path from "@effect/platform/Path"
+import { NodeContext } from "@effect/platform-node"
 import { describe, expect, it } from "@effect/vitest"
+import { Effect } from "effect"
 
-import { syncGithubAuthKeys } from "../../src/usecases/auth-sync.js"
+import { ensureCodexConfigFile, syncGithubAuthKeys } from "../../src/usecases/auth-sync.js"
+
+const withTempDir = <A, E, R>(
+  use: (tempDir: string) => Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R | FileSystem.FileSystem> =>
+  Effect.scoped(
+    Effect.gen(function*(_) {
+      const fs = yield* _(FileSystem.FileSystem)
+      const tempDir = yield* _(
+        fs.makeTempDirectoryScoped({
+          prefix: "docker-git-auth-sync-"
+        })
+      )
+      return yield* _(use(tempDir))
+    })
+  )
 
 describe("syncGithubAuthKeys", () => {
   it("updates github token keys from source and preserves non-auth target keys", () => {
@@ -48,4 +67,28 @@ describe("syncGithubAuthKeys", () => {
 
     expect(next).toBe(target)
   })
+
+  it.effect("ignores permission-denied codex config rewrites", () =>
+    withTempDir((root) =>
+      Effect.gen(function*(_) {
+        const fs = yield* _(FileSystem.FileSystem)
+        const path = yield* _(Path.Path)
+        const codexDir = path.join(root, ".orch", "auth", "codex")
+        const configPath = path.join(codexDir, "config.toml")
+        const readOnlyConfig = [
+          "# docker-git codex config",
+          "model = \"gpt-5\"",
+          ""
+        ].join("\n")
+
+        yield* _(fs.makeDirectory(codexDir, { recursive: true }))
+        yield* _(fs.writeFileString(configPath, readOnlyConfig))
+        yield* _(fs.chmod(configPath, 0o400))
+
+        yield* _(ensureCodexConfigFile(root, ".orch/auth/codex"))
+
+        const next = yield* _(fs.readFileString(configPath))
+        expect(next).toBe(readOnlyConfig)
+      })
+    ).pipe(Effect.provide(NodeContext.layer)))
 })
