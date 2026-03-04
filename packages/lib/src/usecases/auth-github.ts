@@ -43,7 +43,8 @@ const ensureGithubOrchLayout = (
     envGlobalPath,
     defaultTemplateConfig.envProjectPath,
     defaultTemplateConfig.codexAuthPath,
-    ghAuthRoot
+    ghAuthRoot,
+    ".docker-git/.orch/auth/claude"
   )
 
 const normalizeGithubLabel = (value: string | null): string => {

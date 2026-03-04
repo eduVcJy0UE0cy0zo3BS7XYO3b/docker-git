@@ -19,6 +19,16 @@ fi
 
 CLAUDE_AUTH_ROOT="${claudeAuthRootContainerPath(config.sshUser)}"
 CLAUDE_CONFIG_DIR="$CLAUDE_AUTH_ROOT/$CLAUDE_LABEL_NORM"
+
+# Backward compatibility: if default auth is stored directly under claude root, reuse it.
+if [[ "$CLAUDE_LABEL_NORM" == "default" ]]; then
+  CLAUDE_ROOT_TOKEN_FILE="$CLAUDE_AUTH_ROOT/.oauth-token"
+  CLAUDE_ROOT_CONFIG_FILE="$CLAUDE_AUTH_ROOT/.config.json"
+  if [[ -f "$CLAUDE_ROOT_TOKEN_FILE" ]] || [[ -f "$CLAUDE_ROOT_CONFIG_FILE" ]]; then
+    CLAUDE_CONFIG_DIR="$CLAUDE_AUTH_ROOT"
+  fi
+fi
+
 export CLAUDE_CONFIG_DIR
 
 mkdir -p "$CLAUDE_CONFIG_DIR" || true

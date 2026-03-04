@@ -11,6 +11,7 @@ describe("renderError", () => {
     expect(message).toContain("/var/run/docker.sock")
     expect(message).toContain("port is already allocated")
     expect(message).toContain("--ssh-port")
+    expect(message).toContain("auth.docker.io")
   })
 
   it("renders actionable recovery for DockerAccessError", () => {

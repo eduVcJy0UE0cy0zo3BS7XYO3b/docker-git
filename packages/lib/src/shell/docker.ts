@@ -2,7 +2,7 @@ import * as Command from "@effect/platform/Command"
 import type * as CommandExecutor from "@effect/platform/CommandExecutor"
 import { ExitCode } from "@effect/platform/CommandExecutor"
 import type { PlatformError } from "@effect/platform/Error"
-import { Effect, pipe } from "effect"
+import { Duration, Effect, Schedule, pipe } from "effect"
 
 import { runCommandCapture, runCommandExitCode, runCommandWithExitCodes } from "./command-runner.js"
 import { CommandFailedError, DockerCommandError } from "./errors.js"
@@ -51,6 +51,24 @@ const runComposeCapture = (
     (exitCode) => new DockerCommandError({ exitCode })
   )
 
+const dockerComposeUpRetrySchedule = Schedule.addDelay(
+  Schedule.recurs(2),
+  () => Duration.seconds(2)
+)
+
+const retryDockerComposeUp = (
+  cwd: string,
+  effect: Effect.Effect<void, DockerCommandError | PlatformError, CommandExecutor.CommandExecutor>
+): Effect.Effect<void, DockerCommandError | PlatformError, CommandExecutor.CommandExecutor> =>
+  effect.pipe(
+    Effect.tapError(() =>
+      Effect.logWarning(
+        `docker compose up failed in ${cwd}; retrying (possible transient Docker Hub/DNS issue)...`
+      )
+    ),
+    Effect.retry(dockerComposeUpRetrySchedule)
+  )
+
 // CHANGE: run docker compose up -d --build in the target directory
 // WHY: provide a controlled shell effect for image creation
 // QUOTE(ТЗ): "создавать докер образы"
@@ -64,7 +82,10 @@ const runComposeCapture = (
 export const runDockerComposeUp = (
   cwd: string
 ): Effect.Effect<void, DockerCommandError | PlatformError, CommandExecutor.CommandExecutor> =>
-  runCompose(cwd, ["up", "-d", "--build"], [Number(ExitCode(0))])
+  retryDockerComposeUp(
+    cwd,
+    runCompose(cwd, ["up", "-d", "--build"], [Number(ExitCode(0))])
+  )
 
 export const dockerComposeUpRecreateArgs: ReadonlyArray<string> = [
   "up",
@@ -86,7 +107,10 @@ export const dockerComposeUpRecreateArgs: ReadonlyArray<string> = [
 export const runDockerComposeUpRecreate = (
   cwd: string
 ): Effect.Effect<void, DockerCommandError | PlatformError, CommandExecutor.CommandExecutor> =>
-  runCompose(cwd, dockerComposeUpRecreateArgs, [Number(ExitCode(0))])
+  retryDockerComposeUp(
+    cwd,
+    runCompose(cwd, dockerComposeUpRecreateArgs, [Number(ExitCode(0))])
+  )
 
 // CHANGE: run docker compose down in the target directory
 // WHY: allow stopping managed containers from the CLI/menu

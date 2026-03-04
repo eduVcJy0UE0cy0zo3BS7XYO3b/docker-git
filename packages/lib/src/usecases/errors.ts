@@ -82,7 +82,8 @@ const renderPrimaryError = (error: NonParseError): string | null =>
         `docker compose failed with exit code ${exitCode}`,
         "Hint: ensure Docker daemon is running and current user can access /var/run/docker.sock (for example via the docker group).",
         "Hint: if output above contains 'port is already allocated', retry with a free SSH port via --ssh-port <port> (for example --ssh-port 2235), or stop the conflicting project/container.",
-        "Hint: if output above contains 'all predefined address pools have been fully subnetted', run `docker network prune -f`, configure Docker `default-address-pools`, or use shared network mode (`--network-mode shared`)."
+        "Hint: if output above contains 'all predefined address pools have been fully subnetted', run `docker network prune -f`, configure Docker `default-address-pools`, or use shared network mode (`--network-mode shared`).",
+        "Hint: if output above contains 'lookup auth.docker.io' or 'read udp ... [::1]:53 ... connection refused', fix Docker DNS resolver (set working DNS in host/daemon config) and retry."
       ].join("\n")),
     Match.when({ _tag: "DockerAccessError" }, ({ details, issue }) =>
       [

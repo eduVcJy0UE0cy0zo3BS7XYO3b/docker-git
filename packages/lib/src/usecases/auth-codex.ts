@@ -36,7 +36,8 @@ const ensureCodexOrchLayout = (
     defaultTemplateConfig.envGlobalPath,
     defaultTemplateConfig.envProjectPath,
     codexAuthPath,
-    ".docker-git/.orch/auth/gh"
+    ".docker-git/.orch/auth/gh",
+    ".docker-git/.orch/auth/claude"
   )
 
 const renderCodexDockerfile = (): string =>

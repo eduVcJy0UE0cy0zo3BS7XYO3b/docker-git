@@ -45,7 +45,8 @@ const ensureClaudeOrchLayout = (
     defaultTemplateConfig.envGlobalPath,
     defaultTemplateConfig.envProjectPath,
     defaultTemplateConfig.codexAuthPath,
-    ".docker-git/.orch/auth/gh"
+    ".docker-git/.orch/auth/gh",
+    ".docker-git/.orch/auth/claude"
   )
 
 const renderClaudeDockerfile = (): string =>

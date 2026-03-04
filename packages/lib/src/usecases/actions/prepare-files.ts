@@ -169,5 +169,6 @@ export const migrateProjectOrchLayout = (
     globalConfig.envGlobalPath,
     globalConfig.envProjectPath,
     globalConfig.codexAuthPath,
-    resolveRootPath(".docker-git/.orch/auth/gh")
+    resolveRootPath(".docker-git/.orch/auth/gh"),
+    resolveRootPath(".docker-git/.orch/auth/claude")
   )

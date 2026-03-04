@@ -277,7 +277,8 @@ export const migrateLegacyOrchLayout = (
   envGlobalPath: string,
   envProjectPath: string,
   codexAuthPath: string,
-  ghAuthPath: string
+  ghAuthPath: string,
+  claudeAuthPath: string
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
   withFsPathContext(({ fs, path }) =>
     Effect.gen(function*(_) {
@@ -295,15 +296,18 @@ export const migrateLegacyOrchLayout = (
       const legacyEnvProject = path.join(legacyRoot, "env", "project.env")
       const legacyCodex = path.join(legacyRoot, "auth", "codex")
       const legacyGh = path.join(legacyRoot, "auth", "gh")
+      const legacyClaude = path.join(legacyRoot, "auth", "claude")
 
       const resolvedEnvGlobal = resolvePathFromBase(path, baseDir, envGlobalPath)
       const resolvedEnvProject = resolvePathFromBase(path, baseDir, envProjectPath)
       const resolvedCodex = resolvePathFromBase(path, baseDir, codexAuthPath)
       const resolvedGh = resolvePathFromBase(path, baseDir, ghAuthPath)
+      const resolvedClaude = resolvePathFromBase(path, baseDir, claudeAuthPath)
 
       yield* _(copyFileIfNeeded(legacyEnvGlobal, resolvedEnvGlobal))
       yield* _(copyFileIfNeeded(legacyEnvProject, resolvedEnvProject))
       yield* _(copyDirIfEmpty(fs, path, legacyCodex, resolvedCodex, "Codex auth"))
       yield* _(copyDirIfEmpty(fs, path, legacyGh, resolvedGh, "GH auth"))
+      yield* _(copyDirIfEmpty(fs, path, legacyClaude, resolvedClaude, "Claude auth"))
     })
   )

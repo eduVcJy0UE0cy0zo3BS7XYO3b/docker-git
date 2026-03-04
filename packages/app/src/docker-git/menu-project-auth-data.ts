@@ -195,21 +195,31 @@ const updateProjectGitDisconnect = (spec: ProjectEnvUpdateSpec): Effect.Effect<s
   return Effect.succeed(clearProjectGitLabels(withoutUser))
 }
 
+const resolveClaudeAccountCandidates = (
+  claudeAuthPath: string,
+  accountLabel: string
+): ReadonlyArray<string> =>
+  accountLabel === "default"
+    ? [`${claudeAuthPath}/default`, claudeAuthPath]
+    : [`${claudeAuthPath}/${accountLabel}`]
+
 const updateProjectClaudeConnect = (spec: ProjectEnvUpdateSpec): Effect.Effect<string, AppError> => {
   const accountLabel = normalizeAccountLabel(spec.rawLabel, "default")
-  const accountPath = `${spec.claudeAuthPath}/${accountLabel}`
+  const accountCandidates = resolveClaudeAccountCandidates(spec.claudeAuthPath, accountLabel)
   return Effect.gen(function*(_) {
-    const exists = yield* _(spec.fs.exists(accountPath))
-    if (!exists) {
-      return yield* _(Effect.fail(missingSecret("Claude Code login", spec.canonicalLabel, spec.claudeAuthPath)))
-    }
+    for (const accountPath of accountCandidates) {
+      const exists = yield* _(spec.fs.exists(accountPath))
+      if (!exists) {
+        continue
+      }
 
-    const hasCredentials = yield* _(
-      hasClaudeAccountCredentials(spec.fs, accountPath),
-      Effect.orElseSucceed(() => false)
-    )
-    if (hasCredentials) {
-      return upsertEnvKey(spec.projectEnvText, projectClaudeLabelKey, spec.canonicalLabel)
+      const hasCredentials = yield* _(
+        hasClaudeAccountCredentials(spec.fs, accountPath),
+        Effect.orElseSucceed(() => false)
+      )
+      if (hasCredentials) {
+        return upsertEnvKey(spec.projectEnvText, projectClaudeLabelKey, spec.canonicalLabel)
+      }
     }
 
     return yield* _(Effect.fail(missingSecret("Claude Code login", spec.canonicalLabel, spec.claudeAuthPath)))

@@ -40,6 +40,8 @@ describe("renderEntrypoint auth bridge", () => {
       expect(entrypoint).toContain("CLAUDE_SETTINGS_FILE=\"$CLAUDE_CONFIG_DIR/.claude.json\"")
       expect(entrypoint).toContain("nextServers.playwright = {")
       expect(entrypoint).toContain("command: \"docker-git-playwright-mcp\"")
+      expect(entrypoint).toContain("CLAUDE_ROOT_TOKEN_FILE=\"$CLAUDE_AUTH_ROOT/.oauth-token\"")
+      expect(entrypoint).toContain("CLAUDE_ROOT_CONFIG_FILE=\"$CLAUDE_AUTH_ROOT/.config.json\"")
       expect(entrypoint).toContain("CLAUDE_GLOBAL_PROMPT_FILE=\"/home/dev/.claude/CLAUDE.md\"")
       expect(entrypoint).toContain("CLAUDE_AUTO_SYSTEM_PROMPT=\"${CLAUDE_AUTO_SYSTEM_PROMPT:-1}\"")
       expect(entrypoint).toContain("docker-git-managed:claude-md")
