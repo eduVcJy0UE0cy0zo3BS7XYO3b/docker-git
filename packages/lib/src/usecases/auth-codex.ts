@@ -31,14 +31,13 @@ const ensureCodexOrchLayout = (
   cwd: string,
   codexAuthPath: string
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  migrateLegacyOrchLayout(
-    cwd,
-    defaultTemplateConfig.envGlobalPath,
-    defaultTemplateConfig.envProjectPath,
+  migrateLegacyOrchLayout(cwd, {
+    envGlobalPath: defaultTemplateConfig.envGlobalPath,
+    envProjectPath: defaultTemplateConfig.envProjectPath,
     codexAuthPath,
-    ".docker-git/.orch/auth/gh",
-    ".docker-git/.orch/auth/claude"
-  )
+    ghAuthPath: ".docker-git/.orch/auth/gh",
+    claudeAuthPath: ".docker-git/.orch/auth/claude"
+  })
 
 const renderCodexDockerfile = (): string =>
   String.raw`FROM ubuntu:24.04

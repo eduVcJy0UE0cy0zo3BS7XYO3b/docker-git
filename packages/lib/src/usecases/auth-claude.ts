@@ -102,14 +102,13 @@ const buildClaudeAuthEnv = (
 const ensureClaudeOrchLayout = (
   cwd: string
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  migrateLegacyOrchLayout(
-    cwd,
-    defaultTemplateConfig.envGlobalPath,
-    defaultTemplateConfig.envProjectPath,
-    defaultTemplateConfig.codexAuthPath,
-    ".docker-git/.orch/auth/gh",
-    ".docker-git/.orch/auth/claude"
-  )
+  migrateLegacyOrchLayout(cwd, {
+    envGlobalPath: defaultTemplateConfig.envGlobalPath,
+    envProjectPath: defaultTemplateConfig.envProjectPath,
+    codexAuthPath: defaultTemplateConfig.codexAuthPath,
+    ghAuthPath: ".docker-git/.orch/auth/gh",
+    claudeAuthPath: ".docker-git/.orch/auth/claude"
+  })
 
 const renderClaudeDockerfile = (): string =>
   String.raw`FROM ubuntu:24.04

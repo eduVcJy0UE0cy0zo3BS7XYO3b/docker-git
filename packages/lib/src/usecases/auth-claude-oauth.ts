@@ -6,6 +6,7 @@ import * as Fiber from "effect/Fiber"
 import type * as Scope from "effect/Scope"
 import * as Stream from "effect/Stream"
 
+import { resolveDefaultDockerUser } from "../shell/docker-auth.js"
 import { AuthError, CommandFailedError } from "../shell/errors.js"
 
 const oauthTokenEnvKey = "DOCKER_GIT_CLAUDE_OAUTH_TOKEN"
@@ -142,10 +143,9 @@ const buildDockerSetupTokenSpec = (
 
 const buildDockerSetupTokenArgs = (spec: DockerSetupTokenSpec): ReadonlyArray<string> => {
   const base: Array<string> = ["run", "--rm", "-i", "-t", "-v", `${spec.hostPath}:${spec.containerPath}`]
-  const getUid = (process as { readonly getuid?: () => number }).getuid
-  const getGid = (process as { readonly getgid?: () => number }).getgid
-  if (typeof getUid === "function" && typeof getGid === "function") {
-    base.push("--user", `${getUid()}:${getGid()}`)
+  const dockerUser = resolveDefaultDockerUser()
+  if (dockerUser !== null) {
+    base.push("--user", dockerUser)
   }
   for (const entry of spec.env) {
     const trimmed = entry.trim()

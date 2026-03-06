@@ -38,14 +38,13 @@ const ensureGithubOrchLayout = (
   cwd: string,
   envGlobalPath: string
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  migrateLegacyOrchLayout(
-    cwd,
+  migrateLegacyOrchLayout(cwd, {
     envGlobalPath,
-    defaultTemplateConfig.envProjectPath,
-    defaultTemplateConfig.codexAuthPath,
-    ghAuthRoot,
-    ".docker-git/.orch/auth/claude"
-  )
+    envProjectPath: defaultTemplateConfig.envProjectPath,
+    codexAuthPath: defaultTemplateConfig.codexAuthPath,
+    ghAuthPath: ghAuthRoot,
+    claudeAuthPath: ".docker-git/.orch/auth/claude"
+  })
 
 const normalizeGithubLabel = (value: string | null): string => {
   const trimmed = value?.trim() ?? ""

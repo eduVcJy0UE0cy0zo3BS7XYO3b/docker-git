@@ -4,107 +4,21 @@ import type * as Path from "@effect/platform/Path"
 import { Effect } from "effect"
 
 import { copyCodexFile, copyDirIfEmpty } from "./auth-copy.js"
+import {
+  type AuthSyncSpec,
+  defaultCodexConfig,
+  hasClaudeCredentials,
+  hasClaudeOauthAccount,
+  isGithubTokenKey,
+  type LegacyOrchPaths,
+  parseJsonRecord,
+  resolvePathFromBase,
+  shouldCopyEnv,
+  shouldRewriteDockerGitCodexConfig,
+  skipCodexConfigPermissionDenied
+} from "./auth-sync-helpers.js"
 import { parseEnvEntries, removeEnvKey, upsertEnvKey } from "./env-file.js"
 import { withFsPathContext } from "./runtime.js"
-
-type CopyDecision = "skip" | "copy"
-type JsonRecord = Readonly<Record<string, unknown>>
-
-const defaultEnvContents = "# docker-git env\n# KEY=value\n"
-// CHANGE: enable web search tool in default Codex config (top-level)
-// WHY: avoid deprecated legacy flags and keep config minimal
-// QUOTE(ТЗ): "да убери легаси"
-// REF: user-request-2026-02-05-remove-legacy-web-search
-// SOURCE: n/a
-// FORMAT THEOREM: ∀c: config(c) -> web_search(c)="live"
-// PURITY: CORE
-// EFFECT: n/a
-// INVARIANT: default config stays deterministic
-// COMPLEXITY: O(1)
-const defaultCodexConfig = [
-  "# docker-git codex config",
-  "model = \"gpt-5.3-codex\"",
-  "model_reasoning_effort = \"xhigh\"",
-  "personality = \"pragmatic\"",
-  "",
-  "approval_policy = \"never\"",
-  "sandbox_mode = \"danger-full-access\"",
-  "web_search = \"live\"",
-  "",
-  "[features]",
-  "shell_snapshot = true",
-  "multi_agent = true",
-  "apps = true",
-  "shell_tool = true"
-].join("\n")
-
-const resolvePathFromBase = (path: Path.Path, baseDir: string, targetPath: string): string =>
-  path.isAbsolute(targetPath) ? targetPath : path.resolve(baseDir, targetPath)
-
-const isPermissionDeniedSystemError = (error: PlatformError): boolean =>
-  error._tag === "SystemError" && error.reason === "PermissionDenied"
-
-const skipCodexConfigPermissionDenied = (
-  configPath: string,
-  error: PlatformError
-): Effect.Effect<void, PlatformError> =>
-  isPermissionDeniedSystemError(error)
-    ? Effect.logWarning(
-      `Skipped Codex config sync at ${configPath}: permission denied (${error.description ?? "no details"}).`
-    )
-    : Effect.fail(error)
-
-const codexConfigMarker = "# docker-git codex config"
-
-const normalizeConfigText = (text: string): string =>
-  text
-    .replaceAll("\r\n", "\n")
-    .trim()
-
-const shouldRewriteDockerGitCodexConfig = (existing: string): boolean => {
-  const normalized = normalizeConfigText(existing)
-  if (normalized.length === 0) {
-    return true
-  }
-  if (!normalized.startsWith(codexConfigMarker)) {
-    return false
-  }
-  return normalized !== normalizeConfigText(defaultCodexConfig)
-}
-
-const shouldCopyEnv = (sourceText: string, targetText: string): CopyDecision => {
-  if (sourceText.trim().length === 0) {
-    return "skip"
-  }
-  if (targetText.trim().length === 0) {
-    return "copy"
-  }
-  if (targetText.trim() === defaultEnvContents.trim() && sourceText.trim() !== defaultEnvContents.trim()) {
-    return "copy"
-  }
-  return "skip"
-}
-
-const parseJsonRecord = (text: string): JsonRecord | null => {
-  try {
-    const parsed: unknown = JSON.parse(text)
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return null
-    }
-    return parsed as JsonRecord
-  } catch {
-    return null
-  }
-}
-
-const hasClaudeOauthAccount = (record: JsonRecord | null): boolean =>
-  record !== null && typeof record["oauthAccount"] === "object" && record["oauthAccount"] !== null
-
-const hasClaudeCredentials = (record: JsonRecord | null): boolean =>
-  record !== null && typeof record["claudeAiOauth"] === "object" && record["claudeAiOauth"] !== null
-
-const isGithubTokenKey = (key: string): boolean =>
-  key === "GITHUB_TOKEN" || key === "GH_TOKEN" || key.startsWith("GITHUB_TOKEN__")
 
 // CHANGE: synchronize GitHub auth keys between env files
 // WHY: avoid stale per-project tokens that cause clone auth failures after token rotation
@@ -196,48 +110,73 @@ const copyFileIfNeeded = (
     })
   )
 
+type ClaudeJsonSyncSpec = {
+  readonly sourcePath: string
+  readonly targetPath: string
+  readonly hasRequiredData: (record: Parameters<typeof hasClaudeOauthAccount>[0]) => boolean
+  readonly onWrite: (targetPath: string) => Effect.Effect<void, PlatformError>
+  readonly seedLabel: string
+  readonly updateLabel: string
+}
+
+const syncClaudeJsonFile = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  spec: ClaudeJsonSyncSpec
+): Effect.Effect<void, PlatformError> =>
+  Effect.gen(function*(_) {
+    const sourceExists = yield* _(fs.exists(spec.sourcePath))
+    if (!sourceExists) {
+      return
+    }
+
+    const sourceInfo = yield* _(fs.stat(spec.sourcePath))
+    if (sourceInfo.type !== "File") {
+      return
+    }
+
+    const sourceText = yield* _(fs.readFileString(spec.sourcePath))
+    const sourceJson = yield* _(parseJsonRecord(sourceText))
+    if (!spec.hasRequiredData(sourceJson)) {
+      return
+    }
+
+    const targetExists = yield* _(fs.exists(spec.targetPath))
+    if (!targetExists) {
+      yield* _(fs.makeDirectory(path.dirname(spec.targetPath), { recursive: true }))
+      yield* _(fs.copyFile(spec.sourcePath, spec.targetPath))
+      yield* _(spec.onWrite(spec.targetPath))
+      yield* _(Effect.log(`Seeded ${spec.seedLabel} from ${spec.sourcePath} to ${spec.targetPath}`))
+      return
+    }
+
+    const targetInfo = yield* _(fs.stat(spec.targetPath))
+    if (targetInfo.type !== "File") {
+      return
+    }
+
+    const targetText = yield* _(fs.readFileString(spec.targetPath), Effect.orElseSucceed(() => ""))
+    const targetJson = yield* _(parseJsonRecord(targetText))
+    if (!spec.hasRequiredData(targetJson)) {
+      yield* _(fs.writeFileString(spec.targetPath, sourceText))
+      yield* _(spec.onWrite(spec.targetPath))
+      yield* _(Effect.log(`Updated ${spec.updateLabel} from ${spec.sourcePath} to ${spec.targetPath}`))
+    }
+  })
+
 const syncClaudeHomeJson = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   sourcePath: string,
   targetPath: string
 ): Effect.Effect<void, PlatformError> =>
-  Effect.gen(function*(_) {
-    const sourceExists = yield* _(fs.exists(sourcePath))
-    if (!sourceExists) {
-      return
-    }
-
-    const sourceInfo = yield* _(fs.stat(sourcePath))
-    if (sourceInfo.type !== "File") {
-      return
-    }
-
-    const sourceText = yield* _(fs.readFileString(sourcePath))
-    const sourceJson = parseJsonRecord(sourceText)
-    const sourceHasOauth = hasClaudeOauthAccount(sourceJson)
-
-    const targetExists = yield* _(fs.exists(targetPath))
-    if (!targetExists) {
-      yield* _(fs.makeDirectory(path.dirname(targetPath), { recursive: true }))
-      yield* _(fs.copyFile(sourcePath, targetPath))
-      yield* _(Effect.log(`Seeded Claude auth file from ${sourcePath} to ${targetPath}`))
-      return
-    }
-
-    const targetInfo = yield* _(fs.stat(targetPath))
-    if (targetInfo.type !== "File") {
-      return
-    }
-
-    const targetText = yield* _(fs.readFileString(targetPath), Effect.orElseSucceed(() => ""))
-    const targetJson = parseJsonRecord(targetText)
-    const targetHasOauth = hasClaudeOauthAccount(targetJson)
-
-    if (sourceHasOauth && !targetHasOauth) {
-      yield* _(fs.writeFileString(targetPath, sourceText))
-      yield* _(Effect.log(`Updated Claude auth file from ${sourcePath} to ${targetPath}`))
-    }
+  syncClaudeJsonFile(fs, path, {
+    sourcePath,
+    targetPath,
+    hasRequiredData: hasClaudeOauthAccount,
+    onWrite: () => Effect.void,
+    seedLabel: "Claude auth file",
+    updateLabel: "Claude auth file"
   })
 
 const syncClaudeCredentialsJson = (
@@ -246,44 +185,13 @@ const syncClaudeCredentialsJson = (
   sourcePath: string,
   targetPath: string
 ): Effect.Effect<void, PlatformError> =>
-  Effect.gen(function*(_) {
-    const sourceExists = yield* _(fs.exists(sourcePath))
-    if (!sourceExists) {
-      return
-    }
-
-    const sourceInfo = yield* _(fs.stat(sourcePath))
-    if (sourceInfo.type !== "File") {
-      return
-    }
-
-    const sourceText = yield* _(fs.readFileString(sourcePath))
-    const sourceJson = parseJsonRecord(sourceText)
-    if (!hasClaudeCredentials(sourceJson)) {
-      return
-    }
-
-    const targetExists = yield* _(fs.exists(targetPath))
-    if (!targetExists) {
-      yield* _(fs.makeDirectory(path.dirname(targetPath), { recursive: true }))
-      yield* _(fs.copyFile(sourcePath, targetPath))
-      yield* _(fs.chmod(targetPath, 0o600), Effect.orElseSucceed(() => void 0))
-      yield* _(Effect.log(`Seeded Claude credentials from ${sourcePath} to ${targetPath}`))
-      return
-    }
-
-    const targetInfo = yield* _(fs.stat(targetPath))
-    if (targetInfo.type !== "File") {
-      return
-    }
-
-    const targetText = yield* _(fs.readFileString(targetPath), Effect.orElseSucceed(() => ""))
-    const targetJson = parseJsonRecord(targetText)
-    if (!hasClaudeCredentials(targetJson)) {
-      yield* _(fs.writeFileString(targetPath, sourceText))
-      yield* _(fs.chmod(targetPath, 0o600), Effect.orElseSucceed(() => void 0))
-      yield* _(Effect.log(`Updated Claude credentials from ${sourcePath} to ${targetPath}`))
-    }
+  syncClaudeJsonFile(fs, path, {
+    sourcePath,
+    targetPath,
+    hasRequiredData: hasClaudeCredentials,
+    onWrite: (pathToChmod) => fs.chmod(pathToChmod, 0o600).pipe(Effect.orElseSucceed(() => void 0)),
+    seedLabel: "Claude credentials",
+    updateLabel: "Claude credentials"
   })
 
 // CHANGE: seed docker-git Claude auth store from host-level Claude files
@@ -356,24 +264,14 @@ export const ensureCodexConfigFile = (
       })
       yield* _(
         writeConfig.pipe(
-          Effect.catchAll((error) => skipCodexConfigPermissionDenied(configPath, error))
+          Effect.matchEffect({
+            onFailure: (error) => skipCodexConfigPermissionDenied(configPath, error),
+            onSuccess: () => Effect.void
+          })
         )
       )
     })
   )
-
-type AuthPaths = {
-  readonly envGlobalPath: string
-  readonly envProjectPath: string
-  readonly codexAuthPath: string
-}
-
-export type AuthSyncSpec = {
-  readonly sourceBase: string
-  readonly targetBase: string
-  readonly source: AuthPaths
-  readonly target: AuthPaths
-}
 
 export const syncAuthArtifacts = (
   spec: AuthSyncSpec
@@ -418,11 +316,7 @@ export const syncAuthArtifacts = (
 
 export const migrateLegacyOrchLayout = (
   baseDir: string,
-  envGlobalPath: string,
-  envProjectPath: string,
-  codexAuthPath: string,
-  ghAuthPath: string,
-  claudeAuthPath: string
+  paths: LegacyOrchPaths
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
   withFsPathContext(({ fs, path }) =>
     Effect.gen(function*(_) {
@@ -442,11 +336,11 @@ export const migrateLegacyOrchLayout = (
       const legacyGh = path.join(legacyRoot, "auth", "gh")
       const legacyClaude = path.join(legacyRoot, "auth", "claude")
 
-      const resolvedEnvGlobal = resolvePathFromBase(path, baseDir, envGlobalPath)
-      const resolvedEnvProject = resolvePathFromBase(path, baseDir, envProjectPath)
-      const resolvedCodex = resolvePathFromBase(path, baseDir, codexAuthPath)
-      const resolvedGh = resolvePathFromBase(path, baseDir, ghAuthPath)
-      const resolvedClaude = resolvePathFromBase(path, baseDir, claudeAuthPath)
+      const resolvedEnvGlobal = resolvePathFromBase(path, baseDir, paths.envGlobalPath)
+      const resolvedEnvProject = resolvePathFromBase(path, baseDir, paths.envProjectPath)
+      const resolvedCodex = resolvePathFromBase(path, baseDir, paths.codexAuthPath)
+      const resolvedGh = resolvePathFromBase(path, baseDir, paths.ghAuthPath)
+      const resolvedClaude = resolvePathFromBase(path, baseDir, paths.claudeAuthPath)
 
       yield* _(copyFileIfNeeded(legacyEnvGlobal, resolvedEnvGlobal))
       yield* _(copyFileIfNeeded(legacyEnvProject, resolvedEnvProject))

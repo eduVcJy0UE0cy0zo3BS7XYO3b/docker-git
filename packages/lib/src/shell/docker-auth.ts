@@ -20,13 +20,18 @@ export type DockerAuthSpec = {
   readonly interactive: boolean
 }
 
-const resolveDefaultDockerUser = (): string | null => {
-  const getUid = (process as { readonly getuid?: () => number }).getuid
-  const getGid = (process as { readonly getgid?: () => number }).getgid
+export const resolveDefaultDockerUser = (): string | null => {
+  const getUid = Reflect.get(process, "getuid")
+  const getGid = Reflect.get(process, "getgid")
   if (typeof getUid !== "function" || typeof getGid !== "function") {
     return null
   }
-  return `${getUid()}:${getGid()}`
+  const uid = getUid.call(process)
+  const gid = getGid.call(process)
+  if (typeof uid !== "number" || typeof gid !== "number") {
+    return null
+  }
+  return `${uid}:${gid}`
 }
 
 const appendEnvArgs = (base: Array<string>, env: string | ReadonlyArray<string>) => {

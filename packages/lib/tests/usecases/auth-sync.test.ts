@@ -110,14 +110,13 @@ describe("syncGithubAuthKeys", () => {
         yield* _(fs.writeFileString(legacyTokenPath, expectedToken))
 
         yield* _(
-          migrateLegacyOrchLayout(
-            root,
-            ".docker-git/.orch/env/global.env",
-            ".orch/env/project.env",
-            ".docker-git/.orch/auth/codex",
-            ".docker-git/.orch/auth/gh",
-            ".docker-git/.orch/auth/claude"
-          )
+          migrateLegacyOrchLayout(root, {
+            envGlobalPath: ".docker-git/.orch/env/global.env",
+            envProjectPath: ".orch/env/project.env",
+            codexAuthPath: ".docker-git/.orch/auth/codex",
+            ghAuthPath: ".docker-git/.orch/auth/gh",
+            claudeAuthPath: ".docker-git/.orch/auth/claude"
+          })
         )
 
         const migratedTokenPath = path.join(

@@ -1,11 +1,9 @@
 import type { TemplateConfig } from "../domain.js"
 
 const claudeAuthRootContainerPath = (sshUser: string): string => `/home/${sshUser}/.docker-git/.orch/auth/claude`
-const claudeHomeContainerPath = (sshUser: string): string => `/home/${sshUser}/.claude`
 
-const renderClaudeAuthConfig = (config: TemplateConfig): string =>
-  String
-    .raw`# Claude Code: expose CLAUDE_CONFIG_DIR for SSH sessions (OAuth cache lives under ~/.docker-git/.orch/auth/claude)
+const claudeAuthConfigTemplate = String
+  .raw`# Claude Code: expose CLAUDE_CONFIG_DIR for SSH sessions (OAuth cache lives under ~/.docker-git/.orch/auth/claude)
 CLAUDE_LABEL_RAW="$CLAUDE_AUTH_LABEL"
 if [[ -z "$CLAUDE_LABEL_RAW" ]]; then
   CLAUDE_LABEL_RAW="default"
@@ -18,7 +16,7 @@ if [[ -z "$CLAUDE_LABEL_NORM" ]]; then
   CLAUDE_LABEL_NORM="default"
 fi
 
-CLAUDE_AUTH_ROOT="${claudeAuthRootContainerPath(config.sshUser)}"
+CLAUDE_AUTH_ROOT="__CLAUDE_AUTH_ROOT__"
 CLAUDE_CONFIG_DIR="$CLAUDE_AUTH_ROOT/$CLAUDE_LABEL_NORM"
 
 # Backward compatibility: if default auth is stored directly under claude root, reuse it.
@@ -33,8 +31,8 @@ fi
 export CLAUDE_CONFIG_DIR
 
 mkdir -p "$CLAUDE_CONFIG_DIR" || true
-CLAUDE_HOME_DIR="${claudeHomeContainerPath(config.sshUser)}"
-CLAUDE_HOME_JSON="/home/${config.sshUser}/.claude.json"
+CLAUDE_HOME_DIR="__CLAUDE_HOME_DIR__"
+CLAUDE_HOME_JSON="__CLAUDE_HOME_JSON__"
 mkdir -p "$CLAUDE_HOME_DIR" || true
 
 docker_git_link_claude_file() {
@@ -85,6 +83,12 @@ docker_git_refresh_claude_oauth_token() {
 }
 
 docker_git_refresh_claude_oauth_token`
+
+const renderClaudeAuthConfig = (config: TemplateConfig): string =>
+  claudeAuthConfigTemplate
+    .replaceAll("__CLAUDE_AUTH_ROOT__", claudeAuthRootContainerPath(config.sshUser))
+    .replaceAll("__CLAUDE_HOME_DIR__", `/home/${config.sshUser}/.claude`)
+    .replaceAll("__CLAUDE_HOME_JSON__", `/home/${config.sshUser}/.claude.json`)
 
 const renderClaudeCliInstall = (): string =>
   String.raw`# Claude Code: ensure CLI command exists (non-blocking startup self-heal)
@@ -186,7 +190,8 @@ NODE
 docker_git_sync_claude_playwright_mcp
 chown 1000:1000 "$CLAUDE_SETTINGS_FILE" 2>/dev/null || true`
 
-const entrypointClaudeGlobalPromptTemplate = String.raw`# Claude Code: managed global memory (CLAUDE.md is auto-loaded by Claude Code)
+const entrypointClaudeGlobalPromptTemplate = String
+  .raw`# Claude Code: managed global memory (CLAUDE.md is auto-loaded by Claude Code)
 CLAUDE_GLOBAL_PROMPT_FILE="/home/__SSH_USER__/.claude/CLAUDE.md"
 CLAUDE_AUTO_SYSTEM_PROMPT="${"$"}{CLAUDE_AUTO_SYSTEM_PROMPT:-1}"
 CLAUDE_WORKSPACE_CONTEXT="Контекст workspace: repository"

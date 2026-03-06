@@ -172,11 +172,10 @@ export const migrateProjectOrchLayout = (
   globalConfig: CreateCommand["config"],
   resolveRootPath: (value: string) => string
 ): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
-  migrateLegacyOrchLayout(
-    baseDir,
-    globalConfig.envGlobalPath,
-    globalConfig.envProjectPath,
-    globalConfig.codexAuthPath,
-    resolveRootPath(".docker-git/.orch/auth/gh"),
-    resolveRootPath(".docker-git/.orch/auth/claude")
-  )
+  migrateLegacyOrchLayout(baseDir, {
+    envGlobalPath: globalConfig.envGlobalPath,
+    envProjectPath: globalConfig.envProjectPath,
+    codexAuthPath: globalConfig.codexAuthPath,
+    ghAuthPath: resolveRootPath(".docker-git/.orch/auth/gh"),
+    claudeAuthPath: resolveRootPath(".docker-git/.orch/auth/claude")
+  })
