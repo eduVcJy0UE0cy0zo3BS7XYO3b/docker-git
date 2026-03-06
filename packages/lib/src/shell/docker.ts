@@ -2,7 +2,7 @@ import * as Command from "@effect/platform/Command"
 import type * as CommandExecutor from "@effect/platform/CommandExecutor"
 import { ExitCode } from "@effect/platform/CommandExecutor"
 import type { PlatformError } from "@effect/platform/Error"
-import { Duration, Effect, Schedule, pipe } from "effect"
+import { Duration, Effect, pipe, Schedule } from "effect"
 
 import { runCommandCapture, runCommandExitCode, runCommandWithExitCodes } from "./command-runner.js"
 import { CommandFailedError, DockerCommandError } from "./errors.js"

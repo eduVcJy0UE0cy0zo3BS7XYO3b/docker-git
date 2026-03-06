@@ -33,7 +33,9 @@ describe("renderEntrypoint auth bridge", () => {
       expect(entrypoint).toContain("CLAUDE_WRAPPER_BIN=\"/usr/local/bin/claude\"")
       expect(entrypoint).toContain("cat <<'EOF' > \"$CLAUDE_WRAPPER_BIN\"")
       expect(entrypoint).toContain("CLAUDE_REAL_BIN=\"__CLAUDE_REAL_BIN__\"")
-      expect(entrypoint).toContain("sed -i \"s#__CLAUDE_REAL_BIN__#$CLAUDE_REAL_BIN#g\" \"$CLAUDE_WRAPPER_BIN\" || true")
+      expect(entrypoint).toContain(
+        "sed -i \"s#__CLAUDE_REAL_BIN__#$CLAUDE_REAL_BIN#g\" \"$CLAUDE_WRAPPER_BIN\" || true"
+      )
       expect(entrypoint).toContain("CLAUDE_CONFIG_DIR=\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"")
       expect(entrypoint).toContain("docker_git_ensure_claude_cli()")
       expect(entrypoint).toContain("claude cli.js not found under npm global root; skip shim restore")
@@ -51,7 +53,9 @@ describe("renderEntrypoint auth bridge", () => {
       expect(entrypoint).toContain("docker_git_link_claude_home_file \".config.json\"")
       expect(entrypoint).toContain("docker_git_link_claude_home_file \".claude.json\"")
       expect(entrypoint).toContain("docker_git_link_claude_home_file \".credentials.json\"")
-      expect(entrypoint).toContain("docker_git_link_claude_file \"$CLAUDE_CONFIG_DIR/.claude.json\" \"$CLAUDE_HOME_JSON\"")
+      expect(entrypoint).toContain(
+        "docker_git_link_claude_file \"$CLAUDE_CONFIG_DIR/.claude.json\" \"$CLAUDE_HOME_JSON\""
+      )
       expect(entrypoint).toContain("CLAUDE_GLOBAL_PROMPT_FILE=\"/home/dev/.claude/CLAUDE.md\"")
       expect(entrypoint).toContain("CLAUDE_AUTO_SYSTEM_PROMPT=\"${CLAUDE_AUTO_SYSTEM_PROMPT:-1}\"")
       expect(entrypoint).toContain("docker-git-managed:claude-md")

@@ -103,7 +103,8 @@ const ensureClaudeCliReady = (
             ? Effect.log(`Claude CLI self-heal completed in ${containerName}.`)
             : Effect.logWarning(
               `Claude CLI self-heal failed in ${containerName} (exit ${healExitCode}).`
-            )),
+            )
+        ),
         Effect.asVoid
       )
     }),
